@@ -13,6 +13,7 @@ int main(int, char** argv) {
 
     string query = argv[1];
 
+    // <your_binary> q1 <customer.file> <zonecost.file>
 	if (query == "q1") {
         ifstream inFile;
 
@@ -21,53 +22,58 @@ int main(int, char** argv) {
 
         string zoneID;
 
-        inFile.open(argv[3]);
+        inFile.open(zonecostFile);
 
         if (!inFile) {
-            cout << "Unable to open file datafile.txt";
+            cout << "Unable to open zonecost file" << endl;
             exit(1);
         }
 
         string line;
 
-        getline(inFile, line);
-        getline(inFile, line);
+        getline(inFile, line); // column names
+        getline(inFile, line); // hyphens
         while (getline(inFile, line)) {
             if (line.substr(7, 7) == "Toronto") {
                 zoneID = line.substr(0, 6);
+                break;
             } 
         }
         
         inFile.close();
 
-        inFile.open(argv[2]);
+
+        inFile.open(customerFile);
 
         if (!inFile) {
-            cout << "Unable to open file datafile.txt";
+            cout << "Unable to open customer file" << endl;
             exit(1);
         }
 
-        getline(inFile, line);
-        getline(inFile, line);
+        getline(inFile, line); // column names
+        getline(inFile, line); // hyphens
         while (getline(inFile, line)) {
             if (line.substr(243, 1) == "1" and line.substr(135, 6) == zoneID) {
                 cout << line.substr(42, 20) << endl;
             } 
         }
-    }
 
-    if (query == "q2") {
+        return 0;
+    }
+    // <your_binary> q2 <lineitem.file> <products.file>
+    else if (query == "q2") {
         ifstream inFile;
 
         string lineitemFile = argv[2];
         string productsFile = argv[3];
 
-        map<string, set<string>> userPurchase;
+        map<string, set<string>> productPurchased; // <BARCODE, set<UNAME>>
+        map<string, string> productInformaton;     // <BARCODE, PRODDESC>
 
-        inFile.open(argv[2]);
+        inFile.open(lineitemFile);
 
         if (!inFile) {
-            cout << "Unable to open file datafile.txt";
+            cout << "Unable to open lineitem file" << endl;
             exit(1);
         }
 
@@ -76,46 +82,49 @@ int main(int, char** argv) {
         getline(inFile, line);
         getline(inFile, line);
         while (getline(inFile, line)) {
-            if (userPurchase.count(line.substr(0, 20))) {
-                userPurchase[line.substr(0, 20)].insert(line.substr(41, 20));
-            } else {
+            if (productPurchased.find(line.substr(41, 20)) == productPurchased.end()) {
                 set<string> s;
-                s.insert(line.substr(41, 20));
-                userPurchase.insert(pair<string, set<string>>(line.substr(0, 20), s));
+                s.insert(line.substr(0, 20));
+                productPurchased.insert(pair<string, set<string>>(line.substr(41, 20), s));
             }
-        }
-
-        map<string, int> countPurchase;
-
-        map<string, set<string>>::iterator mapIter;
-        set<string>::iterator setIter;
-
-        for(mapIter = userPurchase.begin(); mapIter != userPurchase.end(); mapIter++){
-            for(setIter = mapIter->second.begin(); setIter != mapIter->second.end(); setIter++){
-                if (countPurchase.count(*setIter)){
-                    countPurchase[*setIter]++;
-                } else {
-                    countPurchase.insert(pair<string, int>(*setIter, 1));
-                }
+            else {
+                productPurchased[line.substr(41, 20)].insert(line.substr(0, 20));
             }
         }
         
         inFile.close();
 
-        inFile.open(argv[3]);
+
+        inFile.open(productsFile);
 
         if (!inFile) {
-            cout << "Unable to open file datafile.txt";
+            cout << "Unable to open products file" << endl;
             exit(1);
         }
 
         getline(inFile, line);
         getline(inFile, line);
         while (getline(inFile, line)) {
-            if (countPurchase.count(line.substr(0, 20)) and countPurchase[line.substr(0, 20)] >= 2) {
-                cout << line.substr(0, 20) << line.substr(32, 50) << endl;
+            productInformaton.insert(pair<string, string>(line.substr(0, 20), line.substr(32, 50)));
+        }
+
+        inFile.close();
+
+
+        map<string, set<string>>::iterator mapIter;
+
+        for(mapIter = productPurchased.begin(); mapIter != productPurchased.end(); mapIter++){
+            string BARCODE = mapIter->first;
+
+            if (mapIter->second.size() > 1) {
+                cout << BARCODE << productInformaton[BARCODE] << endl;
             }
         }
 
+        return 0;
+    }
+    else {
+        cout << "Not available query string" << endl;
+        exit(1);
     }
 }
