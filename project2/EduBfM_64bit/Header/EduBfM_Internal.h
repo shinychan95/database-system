@@ -32,7 +32,11 @@
 /* number of buffer types : number of buffer pools used */
 #define NUM_BUF_TYPES 2
 
-/* Buffer Types */
+/* Buffer Types 
+ *
+ * PAGE_BUF : page 영역보다 작은 object, index entry 등이 저장되는 buffer pool
+ * LOT_LEAF_BUF : page 영역보다 큰 object를 나타내는 구조인 Large Object Tree의 leaf node 가 저장되는 buffer pool
+ */
 #define PAGE_BUF     0
 #define LOT_LEAF_BUF 1
 
@@ -46,6 +50,7 @@
 
 /* The structure of key type used at hashing in buffer manager */
 /* same as "typedef BfMHashKey PageID; */
+/* Hash key value = (pageNo + volNo) % HASHTABLESIZE */
 typedef struct {
     PageNo pageNo;		/* a PageNo */
     VolNo volNo;		/* a volumeNo */
@@ -88,7 +93,7 @@ typedef struct {
 /* The structure of BufferTable which is used in buffer replacement algo. */
 typedef struct {
     BfMHashKey 	key;		/* identify a page */
-    Two    	fixed;		/* fixed count */
+    Two    	fixed;		/* Buffer element에 저장된 page/train을 fix (access) 하고 있는 transaction들의 수 */
     One    	bits;		/* bit 1 : DIRTY, bit 2 : VALID, bit 3 : REFER, bit 4 : NEW */
     Two    	nextHashEntry;
 } BufferTable;
@@ -99,9 +104,12 @@ typedef struct {
 #define ALL_0  0x00
 #define ALL_1  ((sizeof(One) == 1) ? (0xff) : (0xffff))
 
-/* type definition for buffer pool information */
+/* type definition for buffer pool information 
+ *
+ * 현재 bufSize에 있어서, PAGE_BUF는 1이고 LOT_LEAF_BUF는 4이다.
+ * */
 typedef struct {
-    Two                 bufSize;        /* size of a buffer in page size */
+    Two                 bufSize;        /* size of a buffer element in page size */
     UTwo                nextVictim;     /* starting point for searching a next victim */
     Two                 nBufs;          /* # of buffers in this buffer pool */
     BufferTable*	 	bufTable;
