@@ -150,6 +150,10 @@ Four edubfm_Delete(
  * Retruns:
  *  index on buffer table entry holding the train specified by 'key'
  *  (NOTFOUND_IN_HTABLE - The key don't exist in the hash table.)
+ * 
+ * 설명:
+ *  hashTable에서 파라미터로 주어진 hash key (BfMHashKey) 에 대응하는
+ *  buffer element의 array index를 검색하여 반환함
  */
 Four edubfm_LookUp(
     BfMHashKey          *key,                   /* IN a hash key in Buffer Manager */
@@ -158,11 +162,22 @@ Four edubfm_LookUp(
     Two                 i, j;                   /* indices */
     Two                 hashValue;
 
-
     CHECKKEY(key);    /*@ check validity of key */
 
+    hashValue = BFM_HASH(key, type);
 
-
+    // 해당 hash key를 갖는 page/train이 저장된 buffer element의 array index를 hashTable에서 검색함
+    // hashValue가 같더라도 volNo와 pageNo가 다를 수 있다.
+    i = BI_HASHTABLEENTRY(type, hashValue);
+    
+    while (i != NIL) {
+        // 검색된 array index를 반환함
+        if (EQUALKEY(&BI_KEY(type, i), key)) return i;
+        
+        // 혹시나 hashValue가 같은 next 값이 있다면 똑같이 비교
+        i = BI_NEXTHASHENTRY(type, i);
+    }
+    
     return(NOTFOUND_IN_HTABLE);
     
 }  /* edubfm_LookUp */
