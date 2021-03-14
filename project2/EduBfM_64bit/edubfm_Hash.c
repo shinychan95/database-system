@@ -251,13 +251,24 @@ Four edubfm_LookUp(
  *
  * Returns:
  *  error code
+ * 
+ * 설명:
+ *  각 hashTable에서 모든 entry (buffer element의 array index) 들을 삭제함
  */
 Four edubfm_DeleteAll(void)
 {
-    Two 	i;
+    Two 	    i;
+    Four        type;
     Four        tableSize;
     
+    for (type = 0; type < NUM_BUF_TYPES; type++) {
+        tableSize = HASHTABLESIZE(type);
 
+        // chaining 까지 삭제하지는 않는다. 왜냐하면 bufTable도 EduBfM_DiscardAll() 함수에서 모두 지워지기 때문에 
+        for (i = 0; i < tableSize; i++) {
+            BI_HASHTABLEENTRY(type, i) = NIL;
+        }
+    }
 
     return(eNOERROR);
 

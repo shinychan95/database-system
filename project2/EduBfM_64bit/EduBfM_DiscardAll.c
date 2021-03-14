@@ -52,6 +52,12 @@
  *
  * Returns:
  *  error code
+ * 
+ * 설명:
+ *  각 bufferPool에 존재하는 page/train들을 disk에 기록하지 않고 bufferPool에서 삭제함
+ * 
+ * 관련 함수:
+ *  1. edubfm_DeleteAll()
  */
 Four EduBfM_DiscardAll(void)
 {
@@ -59,7 +65,18 @@ Four EduBfM_DiscardAll(void)
     Two 	i;			/* index */
     Four 	type;			/* buffer type */
 
+    // 각 bufTable의 모든 element들을 초기화함
+    for (type = 0; type < NUM_BUF_TYPES; type++) {
+        for (i = 0; i < BI_NBUFS(type); i++) {
+            BI_FIXED(type, i) = 0;
+            BI_BITS(type, i) = ALL_0;
+            SET_NILBFMHASHKEY( BI_KEY(type, i) );
+        }
+    }
 
+    // 각 hashTable에 저장된 모든 entry (즉, array index) 들을 삭제함
+    e = edubfm_DeleteAll();
+    if (e < 0) ERR(e);
 
     return(eNOERROR);
 
