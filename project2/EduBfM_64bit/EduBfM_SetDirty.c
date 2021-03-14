@@ -59,6 +59,12 @@
  *  error code
  *    eBADBUFFERTYPE_BFM - bad buffer type
  *    some errors caused by function calls
+ * 
+ * 설명 :
+ *  bufferPool에 저장된 page/train이 수정되었음을 표시하기 위해 DIRTY bit를 1로 set함
+ * 
+ * 관련 함수 :
+ *  1. edubfm_LookUp()
  */
 Four EduBfM_SetDirty(
     TrainID             *trainId,               /* IN which train has been modified in the buffer?  */
@@ -66,11 +72,20 @@ Four EduBfM_SetDirty(
 {
     Four                index;                  /* an index of the buffer table & pool */
 
-
     /*@ Is the paramter valid? */
     if (IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);
 
+    // 수정된 page/train의 hash key value를 이용하여, 
+    // 해당 해당 page/train이 저장된 buffer element의 array index를 hashTable에서 검색함
+    index = edubfm_LookUp((BfMHashKey *)trainId, type);
 
+    // 해당 buffer element에 대한 DIRTY bit를 1로 set함
+    if (index == NOTFOUND_IN_HTABLE) {
+        ERR(eBADHASHKEY_BFM);
+    }
+    else {
+        BI_BITS(type, index) |= DIRTY;
+    }
 
     return( eNOERROR );
 
