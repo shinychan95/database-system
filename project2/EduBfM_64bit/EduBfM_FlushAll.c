@@ -68,22 +68,15 @@ Four EduBfM_FlushAll(void)
 
     // DIRTY bit가 1로 set 된 buffer element들에 저장된 각 page/train에 대해, 
     // edubfm_FlushTrain()을 호출하여 해당 page/train을 disk에 기록함
-    type = PAGE_BUF;
-    for (i = 0; i < BI_NBUFS(type); i++) {
-        if (BI_BITS(type, i) & DIRTY) {
-            e = edubfm_FlushTrain(&BI_KEY(type, i), type);
-            if (e < 0) ERR(e);
+    for (type = 0; type < NUM_BUF_TYPES; type++){
+        for (i = 0; i < BI_NBUFS(type); i++) {
+            if (BI_BITS(type, i) & DIRTY) {
+                e = edubfm_FlushTrain(&BI_KEY(type, i), type);
+                if (e < 0) ERR(e);
+            }
         }
     }
-
-    type = LOT_LEAF_BUF;
-    for (i = 0; i < BI_NBUFS(type); i++) {
-        if (BI_BITS(type, i) & DIRTY) {
-            e = edubfm_FlushTrain(&BI_KEY(type, i), type);
-            if (e < 0) ERR(e);
-        }
-    }
-
+    
     return( eNOERROR );
     
 }  /* EduBfM_FlushAll() */
