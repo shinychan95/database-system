@@ -115,6 +115,9 @@ Four edubfm_Insert(
  * Returns:
  *  error code
  *    eNOTFOUND_BFM - The key isn't in the hash table.
+ * 
+ * 설명:
+ *  hashTable에서 buffer element의 array index를 삭제함
  */
 Four edubfm_Delete(
     BfMHashKey          *key,                   /* IN a hash key in buffer manager */
@@ -126,7 +129,42 @@ Four edubfm_Delete(
 
     CHECKKEY(key);    /*@ check validity of key */
 
+    
 
+    // 해당 buffer element에 저장된 page/train의 hash key value를 이용하여, 
+    // 삭제할 buffer element의 array index를 hashTable에서 검색함
+    hashValue = BFM_HASH(key, type);
+
+    prev = NIL;
+    i = BI_HASHTABLEENTRY(type, hashValue);
+
+    while (i != NIL) {
+        // 검색된 entry (array index) 를 hashTable에서 삭제함
+        if (EQUALKEY(&BI_KEY(type, i), key)) {
+            // prev가 없는 경우 = hashTable 내 entry 존재하는 경우
+            if (prev == NIL) {
+                if (BI_NEXTHASHENTRY(type, i) == NIL) {
+                    BI_HASHTABLEENTRY(type, hashValue) = NIL;
+                }
+                else {
+                    BI_HASHTABLEENTRY(type, hashValue) = BI_NEXTHASHENTRY(type, i);
+                }
+            }
+            // prev가 있고, nextHashEntry가 없는 경우
+            else if (BI_NEXTHASHENTRY(type, i) == NIL) {
+                BI_NEXTHASHENTRY(type, prev) == NIL;
+            }
+            // prev가 있고, nextHashEntry가 있는 경우
+            else {
+                BI_NEXTHASHENTRY(type, prev) == BI_NEXTHASHENTRY(type, i);
+            }
+            
+            return (eNOERROR);
+        }
+        
+        prev = i;
+        i = BI_NEXTHASHENTRY(type, i);
+    }
 
     ERR( eNOTFOUND_BFM );
 
