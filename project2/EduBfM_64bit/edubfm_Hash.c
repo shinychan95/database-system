@@ -76,6 +76,10 @@
  * Returns:
  *  error code
  *    eBADBUFINDEX_BFM - bad index value for buffer table
+ * 
+ * 설명:
+ *  hashTable에 buffer element의 array index를 삽입함
+ * 
  */
 Four edubfm_Insert(
     BfMHashKey 		*key,			/* IN a hash key in Buffer Manager */
@@ -88,9 +92,23 @@ Four edubfm_Insert(
 
     CHECKKEY(key);    /*@ check validity of key */
 
-    if( (index < 0) || (index > BI_NBUFS(type)) )
-        ERR( eBADBUFINDEX_BFM );
+    if(index < 0 || index > BI_NBUFS(type)) ERR(eBADBUFINDEX_BFM);
 
+    // 해당 buffer element에 저장된 page/train의 hash key value를 이용하여, 
+    // hashTable에서 해당 array index를 삽입할 위치를 결정함
+
+    hashValue = BFM_HASH(key, type);
+    i = BI_HASHTABLEENTRY(type, hashValue);
+
+    // Collision이 발생하지 않은 경우, 해당 array index를 결정된 위치에 삽입함
+    if (i == NIL) {
+        BI_HASHTABLEENTRY(type, hashValue) = index;
+    }
+    // Collision이 발생한 경우, chaining 방법을 사용하여 이를 처리함
+    else {
+        BI_NEXTHASHENTRY(type, index) = i;
+        BI_HASHTABLEENTRY(type, hashValue) = index;
+    }
    
 
     return( eNOERROR );
