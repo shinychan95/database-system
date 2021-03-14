@@ -63,6 +63,12 @@
  * Side effects
  *  1) parameter aTrain
  *     a buffer specified by 'aTrain' is filled with a disk content
+ * 
+ * 설명:
+ *  Page/train을 disk로부터 읽어와서 buffer element에 저장하고, 해당 buffer element에 대한 포인터를 반환함
+ * 
+ * 관련 함수:
+ *  1. RDsM_ReadTrain()
  */
 Four edubfm_ReadTrain(
     TrainID *trainId,		/* IN which train? */
@@ -75,7 +81,8 @@ Four edubfm_ReadTrain(
 	/* Error check whether using not supported functionality by EduBfM */
 	if (RM_IS_ROLLBACK_REQUIRED()) ERR(eNOTSUPPORTED_EDUBFM);
 
-
+    e = RDsM_ReadTrain((PageID *)trainId, aTrain, BI_BUFSIZE(type));
+    if (e < 0) ERR(e);
 
     return( eNOERROR );
 
