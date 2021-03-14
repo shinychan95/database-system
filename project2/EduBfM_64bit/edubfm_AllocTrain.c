@@ -111,20 +111,19 @@ Four edubfm_AllocTrain(
     if (i == BI_NBUFS(type) * 2) ERR(eNOUNFIXEDBUF_BFM);
 
     // 선정된 buffer element와 관련된 데이터 구조를 초기화함
-    // 선정된 buffer element에 저장되어 있던 page/train이 수정된 경우, 기존 buffer element의 내용을 disk로 flush함
-    if (BI_BITS(type, victim) & DIRTY) {
-        e = edubfm_FlushTrain(&BI_KEY(type, victim), type);
-        if (e < 0) ERR(e);
-    }
+    if (!IS_NILBFMHASHKEY(BI_KEY(type, victim))) {
+        // 선정된 buffer element에 저장되어 있던 page/train이 수정된 경우, 기존 buffer element의 내용을 disk로 flush함
+        if (BI_BITS(type, victim) & DIRTY) {
+            e = edubfm_FlushTrain(&BI_KEY(type, victim), type);
+            if (e < 0) ERR(e);
+        }
 
-    // 선정된 buffer element에 대응하는 bufTable element를 초기화함
-    // 질문? - EduBfM_GetTrain에서 초기화하지 않나?
-
-    // 선정된 buffer element의 array index (hashTable entry) 를 hashTable에서 삭제함
-    if (BI_KEY(type, victim).pageNo != NIL) {
+        // 선정된 buffer element의 array index (hashTable entry) 를 hashTable에서 삭제함
         e = edubfm_Delete(&BI_KEY(type, victim), type);
         if (e < 0) ERR(e);
     }
+
+    // bufTable element를 초기화의 경우 EduBfM_GetTrain()에서 초기화
 
     // 선정된 buffer element의 array index를 반환함
     return( victim );
