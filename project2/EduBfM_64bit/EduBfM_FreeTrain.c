@@ -55,18 +55,39 @@
  *  error code
  *    eBADBUFFERTYPE_BFM - bad buffer type
  *    some errors caused by fuction calls
+ * 
+ * 설명 :
+ *  Page/train을 bufferPool에서 unfix 함
+ * 
+ * 관련 함수 :
+ *  1. edubfm_LookUp()
  */
 Four EduBfM_FreeTrain( 
     TrainID             *trainId,       /* IN train to be freed */
     Four                type)           /* IN buffer type */
 {
     Four                index;          /* index on buffer holding the train */
-    Four 		e;		/* error code */
+    Four 		        e;		        /* error code */
 
     /*@ check if the parameter is valid. */
     if (IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
 
+    // Unfix 할 page/train의 hash key value를 이용하여, 
+    // 해당 page/train이 저장된 buffer element의 array index를 hashTable에서 검색함
+    index = edubfm_LookUp((BfMHashKey *)trainId, type);
 
+    // 해당 buffer element에 대한 fixed 변수 값을 1 감소시킴
+    // fixed 변수의 값은 0 미만이 될 수 없음
+    if (index == NOTFOUND_IN_HTABLE) {
+        ERR(eBADHASHKEY_BFM);
+    }
+    else if (BI_FIXED(type, index) > 0) {
+        BI_FIXED(type, index) -= 1;
+    }
+    else {
+        printf("fixed counter is less than 0!!!\n");
+        printf("trainId = {%d,  %d}\n", trainId->volNo, trainId->pageNo);
+    }
     
     return( eNOERROR );
     
