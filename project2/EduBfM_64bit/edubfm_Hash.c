@@ -92,6 +92,9 @@ Four edubfm_Insert(
 
     CHECKKEY(key);    /*@ check validity of key */
 
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
+
     if(index < 0 || index > BI_NBUFS(type)) ERR(eBADBUFINDEX_BFM);
 
     // 해당 buffer element에 저장된 page/train의 hash key value를 이용하여, 
@@ -145,6 +148,9 @@ Four edubfm_Delete(
     Two                 hashValue;
 
     CHECKKEY(key);    /*@ check validity of key */
+
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
 
     // 해당 buffer element에 저장된 page/train의 hash key value를 이용하여, 
     // 삭제할 buffer element의 array index를 hashTable에서 검색함
@@ -216,6 +222,9 @@ Four edubfm_LookUp(
     Two                 hashValue;
 
     CHECKKEY(key);    /*@ check validity of key */
+
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
 
     hashValue = BFM_HASH(key, type);
 

@@ -77,9 +77,11 @@ Four edubfm_ReadTrain(
 {
     Four e;			/* for error */
 
-
 	/* Error check whether using not supported functionality by EduBfM */
 	if (RM_IS_ROLLBACK_REQUIRED()) ERR(eNOTSUPPORTED_EDUBFM);
+
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
 
     e = RDsM_ReadTrain((PageID *)trainId, aTrain, BI_BUFSIZE(type));
     if (e < 0) ERR(e);

@@ -87,6 +87,9 @@ Four edubfm_AllocTrain(
 	/* Error check whether using not supported functionality by EduBfM */
 	if(sm_cfgParams.useBulkFlush) ERR(eNOTSUPPORTED_EDUBFM);
 
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
+
     victim = BI_NEXTVICTIM(type);
 
     // Second chance buffer replacement algorithm을 사용하여, 할당 받을 buffer element를 선정함

@@ -74,9 +74,11 @@ Four edubfm_FlushTrain(
     Four 			e;			/* for errors */
     Four 			index;			/* for an index */
 
-
 	/* Error check whether using not supported functionality by EduBfM */
 	if (RM_IS_ROLLBACK_REQUIRED()) ERR(eNOTSUPPORTED_EDUBFM);
+
+    /* Is the buffer type valid? */
+    if(IS_BAD_BUFFERTYPE(type)) ERR(eBADBUFFERTYPE_BFM);	
 
     // Flush 할 page/train의 hash key value를 이용하여, 
     // 해당 page/train이 저장된 buffer element의 array index를 hashTable에서 검색함
