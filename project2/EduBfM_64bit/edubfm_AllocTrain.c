@@ -91,7 +91,7 @@ Four edubfm_AllocTrain(
 
     // Second chance buffer replacement algorithm을 사용하여, 할당 받을 buffer element를 선정함
     // 할당 대상 선정을 위해 대응하는 fixed 변수 값이 0인 buffer element들을 순차적으로 방문함
-    for (i = 0; i < BI_BUFSIZE(type) * 2; i++) {
+    for (i = 0; i < BI_NBUFS(type) * 2; i++) {
         if (BI_FIXED(type, victim) == 0) {
             if (BI_BITS(type, victim) & REFER) {
                 BI_BITS(type, victim) ^= REFER;
@@ -101,15 +101,15 @@ Four edubfm_AllocTrain(
             }
         }
 
-        victim = (victim + 1) % BI_BUFSIZE(type);
+        victim = (victim + 1) % BI_NBUFS(type);
     }
 
     // 선정된 victim이 없을 경우 에러를 반환
-    if (i == BI_BUFSIZE(type) * 2) ERR(eNOUNFIXEDBUF_BFM);
+    if (i == BI_NBUFS(type) * 2) ERR(eNOUNFIXEDBUF_BFM);
 
     // 선정된 buffer element와 관련된 데이터 구조를 초기화함
     // 선정된 buffer element에 저장되어 있던 page/train이 수정된 경우, 기존 buffer element의 내용을 disk로 flush함
-    if (BI_BITS(type, victim) & DIRTY == DIRTY) {
+    if (BI_BITS(type, victim) & DIRTY) {
         e = edubfm_FlushTrain(&BI_KEY(type, victim), type);
         if (e < 0) ERR(e);
     }
@@ -118,8 +118,10 @@ Four edubfm_AllocTrain(
     // 질문? - EduBfM_GetTrain에서 초기화하지 않나?
 
     // 선정된 buffer element의 array index (hashTable entry) 를 hashTable에서 삭제함
-    e = edubfm_Delete(&BI_KEY(type, victim), type);
-    if (e < 0) ERR(e);
+    if (BI_KEY(type, victim).pageNo != NIL) {
+        e = edubfm_Delete(&BI_KEY(type, victim), type);
+        if (e < 0) ERR(e);
+    }
 
     // 선정된 buffer element의 array index를 반환함
     return( victim );

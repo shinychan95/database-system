@@ -144,10 +144,7 @@ Four edubfm_Delete(
     Two                 i, prev;                
     Two                 hashValue;
 
-
     CHECKKEY(key);    /*@ check validity of key */
-
-    
 
     // 해당 buffer element에 저장된 page/train의 hash key value를 이용하여, 
     // 삭제할 buffer element의 array index를 hashTable에서 검색함
@@ -170,11 +167,11 @@ Four edubfm_Delete(
             }
             // prev가 있고, nextHashEntry가 없는 경우
             else if (BI_NEXTHASHENTRY(type, i) == NIL) {
-                BI_NEXTHASHENTRY(type, prev) == NIL;
+                BI_NEXTHASHENTRY(type, prev) = NIL;
             }
             // prev가 있고, nextHashEntry가 있는 경우
             else {
-                BI_NEXTHASHENTRY(type, prev) == BI_NEXTHASHENTRY(type, i);
+                BI_NEXTHASHENTRY(type, prev) = BI_NEXTHASHENTRY(type, i);
             }
             
             return (eNOERROR);

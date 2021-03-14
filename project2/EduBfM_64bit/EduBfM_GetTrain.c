@@ -98,13 +98,13 @@ Four EduBfM_GetTrain(
     // Fix 할 page/train의 hash key value를 이용하여, 
     // 해당 page/train이 저장된 buffer element의 array index를 hashTable에서 검색함
     index = edubfm_LookUp((BfMHashKey *)trainId, type);
-
+    
     // Fix 할 page/train이 bufferPool에 존재하지 않는 경우,
     if (index == NOTFOUND_IN_HTABLE) {
         // bufferPool에서 page/train을 저장할 buffer element 한 개를 할당 받음
         index = edubfm_AllocTrain(type);
         if (index < 0) ERR(index);
-
+        
         // Page/train을 disk로부터 읽어와서 할당 받은 buffer element에 저장함
         e = edubfm_ReadTrain(trainId, BI_BUFFER(type, index), type);
         if (e < 0) ERR(e);
