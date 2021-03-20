@@ -100,6 +100,7 @@ Four edubfm_AllocTrain(
                 BI_BITS(type, victim) ^= REFER;
             }
             else {
+                BI_NEXTVICTIM(type) = (victim + 1) % BI_NBUFS(type);
                 break;
             }
         }
