@@ -28,7 +28,7 @@
 
 #include "BfM.h"
 #include "Util_pool.h"
-
+#include "SM_Internal.h" // 사용하지는 않지만, Util_varArray.h에서 Four type 인식 오류를 해결하기 위해
 
 
 /*
