@@ -80,6 +80,13 @@
  *  0) A new object is created.
  *  1) parameter oid
  *     'oid' is set to the ObjectID of the newly created object.
+ * 
+ * 설명 : 
+ *  File을 구성하는 page들 중 파라미터로 지정한 object와 같은 (또는 인접한) page에 
+ *  새로운 object를 삽입하고, 삽입된 object의 ID를 반환함.
+ * 
+ * 관련 함수 :
+ *  1. eduom_CreateObject()
  */
 Four EduOM_CreateObject(
     ObjectID  *catObjForFile,	/* IN file in which object is to be placed */
@@ -104,7 +111,15 @@ Four EduOM_CreateObject(
 	/* Error check whether using not supported functionality by EduOM */
 	if(ALIGNED_LENGTH(length) > LRGOBJ_THRESHOLD) ERR(eNOTSUPPORTED_EDUOM);
     
+    // 삽입할 object의 header를 초기화함
+    objectHdr.length = 0;
+    objectHdr.properties = 0x0;
+    if (objHdr == NULL) objectHdr.tag = objHdr->tag;
+    else objectHdr.tag = 0;
 
+    // eduom_CreateObject()를 호출하여 page에 object를 삽입하고, 삽입된 object의 ID를 반환함
+    e = eduom_CreateObject(catObjForFile, nearObj, &objectHdr, length, data, oid);
+    if(e < 0) ERR(e);
     
     return(eNOERROR);
 }
