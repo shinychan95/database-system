@@ -75,6 +75,11 @@
  *
  * Side Effects :
  *  The slotted page is reorganized to comact the space.
+ * 
+ * 설명 :
+ *  Page의 데이터 영역의 모든 자유 공간이 연속된 하나의 contiguous free area를 형성하도록 object들의 offset를 조정함
+ * 
+ * 
  */
 Four EduOM_CompactPage(
     SlottedPage	*apage,		/* IN slotted page to compact */
@@ -87,7 +92,48 @@ Four EduOM_CompactPage(
     Two    lastSlot;		/* last non empty slot */
     Two    i;			/* index variable */
 
+    // 입력된 페이지의 원본을 유지하기 위해 먼저 전부 복사한다.
+    tpage = *apage;
+    apageDataOffset = 0;
+
+    // 파라미터로 주어진 slotNo가 NIL (-1) 이 아닌 경우,
+    if (slotNo != NIL) {
+        // slotNo에 대응하는 object를 제외한 page의 모든 object들을 데이터 영역의 가장 앞부분부터 연속되게 저장함
+        for (i = 0; i < tpage.header.nSlots; i++) {
+            if (tpage.slot[-i].offset == EMPTYSLOT || slotNo == i) continue;
+
+            obj = &(tpage.data[tpage.slot[-i].offset]);
+            len = ALIGNED_LENGTH(obj->header.length) + sizeof(ObjectHdr);
+            memcpy(&(apage->data[apageDataOffset]), obj, len);
+            apage->slot[-i].offset = apageDataOffset;
+            apageDataOffset += len;
+        }
+
+        // slotNo에 대응하는 object를 데이터 영역 상에서의 마지막 object로 저장함
+        obj = &(tpage.data[tpage.slot[-slotNo].offset]);
+        len = ALIGNED_LENGTH(obj->header.length) + sizeof(ObjectHdr);
+        memcpy(&(apage->data[apageDataOffset]), (char *)obj, len);
+        apage->slot[-slotNo].offset = apageDataOffset;
+        apageDataOffset += len;
+    }
+    // 파라미터로 주어진 slotNo가 NIL (-1) 인 경우,
+    else {
+        // Page의 모든 object들을 데이터 영역의 가장 앞부분부터 연속되게 저장함
+        for (i = 0; i < tpage.header.nSlots; i++) {
+            if (tpage.slot[-i].offset == EMPTYSLOT) continue;
+
+            obj = &(tpage.data[tpage.slot[-i].offset]);
+            len = ALIGNED_LENGTH(obj->header.length) + sizeof(ObjectHdr);
+            memcpy(&(apage->data[apageDataOffset]), obj, len);
+            apage->slot[-i].offset = apageDataOffset;
+            apageDataOffset += len;
+        }
+    }
     
+    // Page header를 갱신함
+    apage->header.unused = 0;
+    apage->header.free = apageDataOffset;
+
 
     return(eNOERROR);
     
