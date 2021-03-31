@@ -180,29 +180,32 @@ Four EduOM_CreateObject(
  * 
  */
 Four eduom_CreateObject(
-                        ObjectID	*catObjForFile,	/* IN file in which object is to be placed */
-                        ObjectID 	*nearObj,	/* IN create the new object near this object */
-                        ObjectHdr	*objHdr,	/* IN from which tag & properties are set */
-                        Four	length,		/* IN amount of data */
-                        char	*data,		/* IN the initial data for the object */
-                        ObjectID	*oid)		/* OUT the object's ObjectID */
+    ObjectID	*catObjForFile,	/* IN file in which object is to be placed */
+    ObjectID 	*nearObj,	/* IN create the new object near this object */
+    ObjectHdr	*objHdr,	/* IN from which tag & properties are set */
+    Four	length,		/* IN amount of data */
+    char	*data,		/* IN the initial data for the object */
+    ObjectID	*oid)		/* OUT the object's ObjectID */
 {
     Four        e;		/* error number */
-    Four	neededSpace;	/* space needed to put new object [+ header] */
-    SlottedPage *apage;		/* pointer to the slotted page buffer */
+    Two         i;		/* index variable */
     Four        alignedLen;	/* aligned length of initial data */
-    Boolean     needToAllocPage;/* Is there a need to alloc a new page? */
+    Four	    neededSpace;	/* space needed to put new object [+ header] */
+
+    SlottedPage *apage;		/* pointer to the slotted page buffer */
+    SlottedPage *catPage;	/* pointer to buffer containing the catalog */
+    sm_CatOverlayForData *catEntry; /* pointer to data file catalog information */
+    PhysicalFileID pFid;
+    FileID      fid;		/* ID of file where the new object is placed */
+    Two         eff;		/* extent fill factor of file */
     PageID      pid;            /* PageID in which new object to be inserted */
     PageID      nearPid;
     Four        firstExt;	/* first Extent No of the file */
     Object      *obj;		/* point to the newly created object */
-    Two         i;		/* index variable */
-    sm_CatOverlayForData *catEntry; /* pointer to data file catalog information */
-    SlottedPage *catPage;	/* pointer to buffer containing the catalog */
-    FileID      fid;		/* ID of file where the new object is placed */
-    Two         eff;		/* extent fill factor of file */
+    
+    Boolean     needToAllocPage;/* Is there a need to alloc a new page? */
     Boolean     isTmp;
-    PhysicalFileID pFid;
+    
     
     
     /*@ parameter checking */
@@ -223,7 +226,7 @@ Four eduom_CreateObject(
     // 1. sm_CatOverlayForData를 담기 위한 catPage
     MAKE_PHYSICALFILEID(pFid, catObjForFile->volNo, catObjForFile->pageNo);
     e = BfM_GetTrain(&pFid, &catPage, PAGE_BUF);
-    if( e < 0) ERR(e);
+    if(e < 0) ERR(e);
     GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
     fid = catEntry->fid;
 
