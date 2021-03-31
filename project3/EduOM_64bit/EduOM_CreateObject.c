@@ -389,14 +389,14 @@ Four eduom_CreateObject(
     // 변경 사항을 반영한다.
     BfM_SetDirty(&pid, PAGE_BUF);
 
-    // 버퍼를 unfix 한다.
+    // 모든 transaction들은 page/train access를 마치고 해당 page/train을 buffer에서 unfix 해야 함
     BfM_FreeTrain(&pFid, PAGE_BUF);
     if(nearObj != NIL && needToAllocPage) {
         BfM_FreeTrain(&nearPid, PAGE_BUF);
     }
     BfM_FreeTrain(&pid, PAGE_BUF);
     
-    
+
     return(eNOERROR);
     
 } /* eduom_CreateObject() */
