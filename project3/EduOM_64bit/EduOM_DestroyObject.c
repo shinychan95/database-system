@@ -76,6 +76,18 @@
  *    eBADOBJECTID_OM
  *    eBADFILEID_OM
  *    some errors caused by function calls
+ * 
+ * 설명:
+ *  File을 구성하는 page에서 object를 삭제함
+ * 
+ * 관련 함수:
+ *  1. om_FileMapDeletePage()
+ *  2. om_PutInAvailSpaceList()
+ *  3. om_RemoveFromAvailSpaceList()
+ *  4. BfM_GetTrain()
+ *  5. BfM_FreeTrain()
+ *  6. BfM_SetDirty()
+ *  7. Util_getElementFromPool()
  */
 Four EduOM_DestroyObject(
     ObjectID *catObjForFile,	/* IN file containing the object */
