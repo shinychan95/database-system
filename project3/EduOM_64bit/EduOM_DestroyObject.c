@@ -81,13 +81,14 @@
  *  File을 구성하는 page에서 object를 삭제함
  * 
  * 관련 함수:
- *  1. om_FileMapDeletePage()
+ *  1. om_FileMapDeletePage() - Page를 file 구성 page들로 이루어진 list에서 삭제함
  *  2. om_PutInAvailSpaceList()
  *  3. om_RemoveFromAvailSpaceList()
  *  4. BfM_GetTrain()
  *  5. BfM_FreeTrain()
  *  6. BfM_SetDirty()
- *  7. Util_getElementFromPool()
+ *  7. Util_getElementFromPool() - Pool에서 새로운 dealloc list element 한 개를 위한 메모리 공간을 할당 받고, 
+                                   할당 받은 메모리 공간에 대한 포인터를 반환함
  */
 Four EduOM_DestroyObject(
     ObjectID *catObjForFile,	/* IN file containing the object */
@@ -98,7 +99,7 @@ Four EduOM_DestroyObject(
     Four        e;		/* error number */
     Two         i;		/* temporary variable */
     FileID      fid;		/* ID of file where the object was placed */
-    PageID	pid;		/* page on which the object resides */
+    PageID	    pid;		/* page on which the object resides */
     SlottedPage *apage;		/* pointer to the buffer holding the page */
     Four        offset;		/* start offset of object in data area */
     Object      *obj;		/* points to the object in data area */
@@ -106,9 +107,8 @@ Four EduOM_DestroyObject(
     Boolean     last;		/* indicates the object is the last one */
     SlottedPage *catPage;	/* buffer page containing the catalog object */
     sm_CatOverlayForData *catEntry; /* overlay structure for catalog object access */
-    DeallocListElem *dlElem;	/* pointer to element of dealloc list */
-    PhysicalFileID pFid;	/* physical ID of file */
-    
+    DeallocListElem *dlElem;	    /* pointer to element of dealloc list */
+    PhysicalFileID pFid;	        /* physical ID of file */
     
 
     /*@ Check parameters. */
@@ -116,6 +116,34 @@ Four EduOM_DestroyObject(
 
     if (oid == NULL) ERR(eBADOBJECTID_OM);
 
+    // sm_CatOverlayForData에 해당하는 page를 buffer에 fix 한다.
+    MAKE_PHYSICALFILEID(pFid, catObjForFile->volNo, catObjForFile->pageNo);
+    e = BfM_GetTrain(&pFid, &catPage, PAGE_BUF);
+    if(e < eNOERROR) ERR(e);
+    GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
+    fid = catEntry->fid;
+
+    // 해당 object가 존재하는 page를 buffer에 fix 한다.
+    MAKE_PAGEID(pid, oid->volNo, oid->pageNo);
+    e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, &pFid, PAGE_BUF); // 만약 해당하는 page가 존재하지 않는다면 에러 발생
+
+    // 해당 ObjectID가 valid 한지 아닌지 체크한다.
+    if (!IS_VALID_OBJECTID(oid, apage)) ERRB2(eBADOBJECTID_OM, &pFid, &pid, PAGE_BUF);
+ 
+    // 삭제할 object가 저장된 page를 현재 available space list에서 삭제함
+    e = om_RemoveFromAvailSpaceList(oid, &pid, apage);
+    if(e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+
+    // 삭제할 object에 대응하는 slot을 사용하지 않는 빈 slot으로 설정함
+
+
+    // Page header를 갱신함
+
+
+    // 삭제된 object가 page의 유일한 object이고, 해당 page가 file의 첫 번째 page가 아닌 경우,
+
+    // 삭제된 object가 page의 유일한 object가 아니거나, 해당 page가 file의 첫 번째 page인 경우, 
 
     
     return(eNOERROR);
