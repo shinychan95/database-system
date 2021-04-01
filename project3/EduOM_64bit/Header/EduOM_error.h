@@ -44,9 +44,17 @@ BEGIN_MACRO \
 END_MACRO
 
 #define ERRB1(e, pid, t) \
-	BEGIN_MACRO \
+BEGIN_MACRO \
     PRTERR(e); \
     (Four) BfM_FreeTrain((pid),(t)); \
+    if (1) return(e); \
+END_MACRO
+
+#define ERRB2(e, pid1, pid2, t) \
+BEGIN_MACRO \
+    PRTERR(e); \
+    (Four) BfM_FreeTrain((pid1),(t)); \
+    (Four) BfM_FreeTrain((pid2),(t)); \
     if (1) return(e); \
 END_MACRO
 
