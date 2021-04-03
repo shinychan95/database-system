@@ -133,18 +133,64 @@ Four EduOM_DestroyObject(
  
     // 삭제할 object가 저장된 page를 현재 available space list에서 삭제함
     e = om_RemoveFromAvailSpaceList(oid, &pid, apage);
-    if(e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+
+    // object 관련 변수들의 값 저장
+    offset = apage->slot[-(oid)->slotNo].offset;
+    obj = &apage->data[offset];
+    alignedLen = ALIGNED_LENGTH(obj->header.length);
 
     // 삭제할 object에 대응하는 slot을 사용하지 않는 빈 slot으로 설정함
+    apage->slot[-(oid)->slotNo].offset = EMPTYSLOT;
+    apage->slot[-(oid)->slotNo].unique = 0;
 
-
+    
     // Page header를 갱신함
+    if (oid->slotNo == apage->header.nSlots - 1) {
+        apage->header.nSlots--;
+    }
 
+    if (offset + sizeof(ObjectHdr) + alignedLen == apage->header.free) {
+        apage->header.free -= sizeof(ObjectHdr) + alignedLen;
+    }
+    else {
+        apage->header.unused += sizeof(ObjectHdr) + alignedLen;
+    }
+
+    // 삭제한 object가 page의 유일한 object인지 체크
+    last = TRUE;
+    for (i = 0; i < apage->header.nSlots; i++) {
+        if (apage->slot[-i].offset != EMPTYSLOT) {
+            last = FALSE;
+            break;
+        }
+    }
 
     // 삭제된 object가 page의 유일한 object이고, 해당 page가 file의 첫 번째 page가 아닌 경우,
+    if (last && apage->header.prevPage != NIL) {
+        // Page를 file 구성 page들로 이루어진 list에서 삭제함
+        e = om_FileMapDeletePage(catObjForFile, &pid);
+        if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
+        // 해당 page를 deallocate 함
+        e = Util_getElementFromPool(dlPool, &dlElem);
+        if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+
+        dlElem->elem.pFid = pFid;
+        dlElem->elem.pid = pid;
+        dlElem->next = dlHead;
+        dlHead = dlElem;
+        dlElem->type = DL_PAGE;
+    }
     // 삭제된 object가 page의 유일한 object가 아니거나, 해당 page가 file의 첫 번째 page인 경우, 
+    else {
+        e = om_PutInAvailSpaceList(catObjForFile, &pid, apage);
+        if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+    }
 
+    // 모든 transaction들은 page/train access를 마치고 해당 page/train을 buffer에서 unfix 해야 함
+    BfM_FreeTrain(&pFid, PAGE_BUF);
+    BfM_FreeTrain(&pid, PAGE_BUF);
     
     return(eNOERROR);
     
