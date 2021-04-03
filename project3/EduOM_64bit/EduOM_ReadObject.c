@@ -138,6 +138,10 @@ Four EduOM_ReadObject(
     else {
         memcpy(buf, &(obj->data[start]), length);
     }
+    
+    // 모든 transaction들은 page/train access를 마치고 해당 page/train을 buffer에서 unfix 해야 함
+    BfM_FreeTrain(&pid, PAGE_BUF);
+
 
     // 해당 데이터에 대한 포인터를 반환함
     return(length);
