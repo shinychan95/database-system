@@ -85,6 +85,13 @@
  *    eBADUSERBUF_OM
  *    eBADSTART_OM
  *    some errors caused by function calls
+ * 
+ * 설명:
+ *  Object의 데이터 전체 또는 일부를 읽고, 읽은 데이터에 대한 포인터를 반환함
+ * 
+ * 관련 함수:
+ *  1. BfM_GetTrain()
+ *  2. BfM_FreeTrain()
  */
 Four EduOM_ReadObject(
     ObjectID 	*oid,		/* IN object to read */
@@ -109,7 +116,30 @@ Four EduOM_ReadObject(
     if (buf == NULL) ERR(eBADUSERBUF_OM);
 
     
+    // 파라미터로 주어진 oid를 이용하여 object에 접근함
+    MAKE_PAGEID(pid, oid->volNo, oid->pageNo);
+    e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
 
+    offset = apage->slot[-(oid)->slotNo].offset;
+    obj = &apage->data[offset];
+
+    // 예외 처리
+    if (!IS_VALID_OBJECTID(oid, apage)) ERRB1(eBADOBJECTID_OM, &pid, PAGE_BUF);
+    if (start > obj->header.length) ERRB1(eBADSTART_OM, &pid, PAGE_BUF);
+    if (start + length > obj->header.length) ERRB1(eBADLENGTH_OM, &pid, PAGE_BUF);
+
+    // 파라미터로 주어진 start 및 length를 고려하여 접근한 object의 데이터를 읽음
+    // length가 REMAINDER인 경우, 데이터를 끝까지 읽음
+    if (length == REMAINDER) {
+        memcpy(buf, &(obj->data[start]), obj->header.length - start);
+    }
+    // Object의 데이터 영역 상에서 start에 대응하는 offset에서 부터 length 만큼의 데이터를 읽음
+    else {
+        memcpy(buf, &(obj->data[start]), length);
+    }
+
+    // 해당 데이터에 대한 포인터를 반환함
     return(length);
     
 } /* EduOM_ReadObject() */
