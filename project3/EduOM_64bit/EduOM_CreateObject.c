@@ -373,7 +373,7 @@ Four eduom_CreateObject(
     // Object의 header를 갱신함
     obj = &(apage->data[apage->slot[-i].offset]);
     obj->header.properties = 0x0;
-    obj->header.tag = NIL; // 사용하지 않는다.
+    obj->header.tag = 0; // 사용하지 않는다.
     obj->header.length = length;
 
     // 선정한 page의 contiguous free area에 object를 복사함
