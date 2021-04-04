@@ -149,10 +149,11 @@ Four EduOM_DestroyObject(
 
     
     // Page header를 갱신함
+    // 마지막 slot인 경우,
     if (oid->slotNo == apage->header.nSlots - 1) {
         apage->header.nSlots--;
     }
-
+    // object 데이터 배열에서 마지막에 해당하는 경우,
     if (offset + sizeof(ObjectHdr) + alignedLen == apage->header.free) {
         apage->header.free -= sizeof(ObjectHdr) + alignedLen;
     }
@@ -185,8 +186,6 @@ Four EduOM_DestroyObject(
     }
 
     // 변경 사항을 반영한다.
-    e = BfM_SetDirty(&pFid, PAGE_BUF);
-    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
     e = BfM_SetDirty(&pid, PAGE_BUF);
     if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
