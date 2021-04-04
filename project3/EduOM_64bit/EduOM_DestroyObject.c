@@ -132,7 +132,7 @@ Four EduOM_DestroyObject(
     if (!IS_VALID_OBJECTID(oid, apage)) ERRB2(eBADOBJECTID_OM, &pFid, &pid, PAGE_BUF);
  
     // 삭제할 object가 저장된 page를 현재 available space list에서 삭제함
-    e = om_RemoveFromAvailSpaceList(oid, &pid, apage);
+    e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
     if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
     // object 관련 변수들의 값 저장
@@ -157,17 +157,9 @@ Four EduOM_DestroyObject(
         apage->header.unused += sizeof(ObjectHdr) + alignedLen;
     }
 
-    // 삭제한 object가 page의 유일한 object인지 체크
-    last = TRUE;
-    for (i = 0; i < apage->header.nSlots; i++) {
-        if (apage->slot[-i].offset != EMPTYSLOT) {
-            last = FALSE;
-            break;
-        }
-    }
 
     // 삭제된 object가 page의 유일한 object이고, 해당 page가 file의 첫 번째 page가 아닌 경우,
-    if (last && apage->header.prevPage != NIL) {
+    if (apage->header.nSlots == 0 && apage->header.prevPage != NIL) {
         // Page를 file 구성 page들로 이루어진 list에서 삭제함
         e = om_FileMapDeletePage(catObjForFile, &pid);
         if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
@@ -184,6 +176,7 @@ Four EduOM_DestroyObject(
     }
     // 삭제된 object가 page의 유일한 object가 아니거나, 해당 page가 file의 첫 번째 page인 경우, 
     else {
+        // Page를 알맞은 available space list에 삽입함
         e = om_PutInAvailSpaceList(catObjForFile, &pid, apage);
         if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
     }
