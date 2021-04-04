@@ -109,8 +109,10 @@ Four EduOM_PrevObject(
         MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
         objHdr = &obj->header;
         
-        BfM_FreeTrain(&pFid, PAGE_BUF);
-        BfM_FreeTrain(&pid, PAGE_BUF);
+        e = BfM_FreeTrain(&pFid, PAGE_BUF);
+        if (e < eNOERROR) ERR(e);
+        e = BfM_FreeTrain(&pid, PAGE_BUF);
+        if (e < eNOERROR) ERR(e);
 
         return(eNOERROR);
     }
@@ -133,10 +135,19 @@ Four EduOM_PrevObject(
         if (i == curOID->slotNo) {
             // file의 첫번째 page인 경우
             if (catEntry->firstPage == apage->header.pid.pageNo) {
+                e = BfM_FreeTrain(&pFid, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+                e = BfM_FreeTrain(&pid, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+
                 return(EOS);
             }
             // file의 첫번째 page가 아닌 경우
             else {
+                // 먼저 이전에 buffer에 fix 했던 page를 unfix 한다.
+                e = BfM_FreeTrain(&pid, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+
                 // 이전 page의 마지막 object의 ID를 반환함
                 MAKE_PAGEID(pid, curOID->volNo, apage->header.prevPage);
                 e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
@@ -149,8 +160,10 @@ Four EduOM_PrevObject(
                 MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
                 objHdr = &obj->header;
                 
-                BfM_FreeTrain(&pFid, PAGE_BUF);
-                BfM_FreeTrain(&pid, PAGE_BUF);
+                e = BfM_FreeTrain(&pFid, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+                e = BfM_FreeTrain(&pid, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
 
                 return(eNOERROR);
             }
@@ -165,8 +178,10 @@ Four EduOM_PrevObject(
                     MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
                     objHdr = &obj->header;
                     
-                    BfM_FreeTrain(&pFid, PAGE_BUF);
-                    BfM_FreeTrain(&pid, PAGE_BUF);
+                    e = BfM_FreeTrain(&pFid, PAGE_BUF);
+                    if (e < eNOERROR) ERR(e);
+                    e = BfM_FreeTrain(&pid, PAGE_BUF);
+                    if (e < eNOERROR) ERR(e);
 
                     return(eNOERROR);
                 }

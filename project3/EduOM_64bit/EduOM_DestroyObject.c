@@ -135,6 +135,9 @@ Four EduOM_DestroyObject(
     e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
     if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
+    e = BfM_SetDirty(&pFid, PAGE_BUF);
+    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+
     // object 관련 변수들의 값 저장
     offset = apage->slot[-(oid)->slotNo].offset;
     obj = &apage->data[offset];
@@ -181,9 +184,17 @@ Four EduOM_DestroyObject(
         if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
     }
 
+    // 변경 사항을 반영한다.
+    e = BfM_SetDirty(&pFid, PAGE_BUF);
+    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+    e = BfM_SetDirty(&pid, PAGE_BUF);
+    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
+
     // 모든 transaction들은 page/train access를 마치고 해당 page/train을 buffer에서 unfix 해야 함
-    BfM_FreeTrain(&pFid, PAGE_BUF);
-    BfM_FreeTrain(&pid, PAGE_BUF);
+    e = BfM_FreeTrain(&pFid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+    e = BfM_FreeTrain(&pid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
     return(eNOERROR);
     

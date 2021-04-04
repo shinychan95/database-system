@@ -325,7 +325,7 @@ Four eduom_CreateObject(
     if (needToAllocPage) {
         // 새로운 page를 할당 받아 object를 삽입할 page로 선정함
         // 새롭게 page를 파일에 추가하므로, dirty bit를 set 한다.
-        e = BfM_SetDirty(catObjForFile, PAGE_BUF);
+        e = BfM_SetDirty(&pFid, PAGE_BUF);
         if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
         // RDsM_AllocTrains()에 필요한 인자를 위해 firstExt 값 가져온다.
@@ -334,7 +334,7 @@ Four eduom_CreateObject(
         
         e = RDsM_AllocTrains(fid.volNo, firstExt, &nearPid, catEntry->eff, 1, 1, &pid);
         if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
-        
+
         e = BfM_GetNewTrain(&pid, &apage, PAGE_BUF);
         if (e < eNOERROR) ERRB1(e, &pFid, PAGE_BUF);
 
@@ -393,15 +393,20 @@ Four eduom_CreateObject(
     oid->unique = apage->slot[-i].unique;
 
     // 변경 사항을 반영한다.
+    e = BfM_SetDirty(&pFid, PAGE_BUF);
+    if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
     e = BfM_SetDirty(&pid, PAGE_BUF);
     if (e < eNOERROR) ERRB2(e, &pFid, &pid, PAGE_BUF);
 
     // 모든 transaction들은 page/train access를 마치고 해당 page/train을 buffer에서 unfix 해야 함
-    BfM_FreeTrain(&pFid, PAGE_BUF);
-    if(nearObj != NIL && needToAllocPage) {
-        BfM_FreeTrain(&nearPid, PAGE_BUF);
+    e = BfM_FreeTrain(&pFid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+    if(nearObj != NULL && needToAllocPage) {
+        e = BfM_FreeTrain(&nearPid, PAGE_BUF);
+        if (e < eNOERROR) ERR(e);
     }
-    BfM_FreeTrain(&pid, PAGE_BUF);
+    e = BfM_FreeTrain(&pid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
 
     return(eNOERROR);
