@@ -77,6 +77,7 @@ Four EduOM_PrevObject(
     PageNo pageNo;		/* a temporary var for previous page's PageNo */
     SlottedPage *apage;		/* a pointer to the data page */
     Object *obj;		/* a pointer to the Object */
+    PhysicalFileID pFid;	/* file in which the objects are located */
     SlottedPage *catPage;	/* buffer page containing the catalog object */
     sm_CatOverlayForData *catEntry; /* overlay structure for catalog object access */
 
@@ -87,8 +88,93 @@ Four EduOM_PrevObject(
     
     if (prevOID == NULL) ERR(eBADOBJECTID_OM);
 
-    
+    MAKE_PHYSICALFILEID(pFid, catObjForFile->volNo, catObjForFile->pageNo);
+    e = BfM_GetTrain(&pFid, &catPage, PAGE_BUF);
+    if(e < eNOERROR) ERR(e);
+    GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
 
-    return(EOS);
+
+    // 파라미터로 주어진 curOID가 NULL인 경우
+    if (curOID == NULL) {
+        // File의 마지막 page의 slot array 상에서의 마지막 object의 ID를 반환함
+        pageNo = catEntry->lastPage;
+        MAKE_PAGEID(pid, catObjForFile->volNo, pageNo);
+        e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(e, &pFid, PAGE_BUF);
+
+        i = apage->header.nSlots - 1;
+        offset = apage->slot[-i].offset;
+        obj = &(apage->data[offset]);
+        
+        MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
+        objHdr = &obj->header;
+        
+        BfM_FreeTrain(&pFid, PAGE_BUF);
+        BfM_FreeTrain(&pid, PAGE_BUF);
+
+        return(eNOERROR);
+    }
+    // 파라미터로 주어진 curOID가 NULL이 아닌 경우
+    else {
+        // curOID에 대응하는 object를 탐색함
+        MAKE_PAGEID(pid, curOID->volNo, curOID->pageNo);
+        e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(e, &pFid, PAGE_BUF);   
+
+        if (!IS_VALID_OBJECTID(curOID, apage)) ERRB2(eBADOBJECTID_OM, &pFid, &pid, PAGE_BUF);
+
+        // 페이지 내 첫번째 object의 slot number를 구한다.
+        for (i = 0; i < apage->header.nSlots; i++) {
+            if (apage->slot[-i].offset != EMPTYSLOT) break;
+        }
+
+        // Slot array 상에서, 탐색한 object의 이전 object의 ID를 반환함
+        // 탐색한 object가 page의 첫 번째 object인 경우
+        if (i == curOID->slotNo) {
+            // file의 첫번째 page인 경우
+            if (catEntry->firstPage == apage->header.pid.pageNo) {
+                return(EOS);
+            }
+            // file의 첫번째 page가 아닌 경우
+            else {
+                // 이전 page의 마지막 object의 ID를 반환함
+                MAKE_PAGEID(pid, curOID->volNo, apage->header.prevPage);
+                e = BfM_GetTrain(&pid, &apage, PAGE_BUF);
+                if (e < eNOERROR) ERRB1(e, &pFid, PAGE_BUF);
+
+                i = apage->header.nSlots - 1;
+                offset = apage->slot[-i].offset;
+                obj = &(apage->data[offset]);
+                
+                MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
+                objHdr = &obj->header;
+                
+                BfM_FreeTrain(&pFid, PAGE_BUF);
+                BfM_FreeTrain(&pid, PAGE_BUF);
+
+                return(eNOERROR);
+            }
+        }
+        // 탐색한 object가 page의 첫번째 object가 아닌 경우,
+        else {
+            for (i = curOID->slotNo - 1; i >= 0; i--) {
+                if (apage->slot[-i].offset != EMPTYSLOT) {
+                    offset = apage->slot[-i].offset;
+                    obj = &(apage->data[offset]);
+
+                    MAKE_OBJECTID(*prevOID, apage->header.pid.volNo, apage->header.pid.pageNo, i, apage->slot[-i].unique);
+                    objHdr = &obj->header;
+                    
+                    BfM_FreeTrain(&pFid, PAGE_BUF);
+                    BfM_FreeTrain(&pid, PAGE_BUF);
+
+                    return(eNOERROR);
+                }
+            }
+        }
+    }
+
+    // 모든 경우에 해당하지 않는다면, 우선 eBADPARAMETER_OM를 반환한다.
+    return(eBADPARAMETER_OM);
     
 } /* EduOM_PrevObject() */
