@@ -1,0 +1,5 @@
+*.o
+EduOM_Test
+testsolution.vol
+test.vol
+odysseus_error.log
