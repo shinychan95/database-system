@@ -70,6 +70,14 @@ Four edubtm_Fetch(PageID*, KeyDesc*, KeyValue*, Four, KeyValue*, Four, BtreeCurs
  * Side effects:
  *  cursor  : The found ObjectID and its position in the Btree Leaf
  *            (it may indicate a ObjectID in an  overflow page).
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에서 검색 조건을 만족하는 첫 번째 object를 검색하고, 검색된 object를 가리키는 cursor를 반환함
+ * 
+ * 관련 함수:
+ *  - edubtm_Fetch()
+ *  - edubtm_FirstObject()
+ *  - edubtm_LastObject()
  */
 Four EduBtM_Fetch(
     PageID   *root,		/* IN The current root of the subtree */
@@ -87,12 +95,25 @@ Four EduBtM_Fetch(
     if (root == NULL) ERR(eBADPARAMETER_BTM);
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for (i = 0; i < kdesc->nparts; i++) {
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
-    
+
+    // 파라미터로 주어진 startCompOp가 SM_BOF일 경우,
+    if (startCompOp == SM_BOF) {
+        e = edubtm_FirstObject(root, kdesc, stopKval, stopCompOp, cursor);
+    }   
+    // 파라미터로 주어진 startCompOp가 SM_EOF일 경우,
+    else if (startCompOp == SM_EOF) {
+        e = edubtm_LastObject(root, kdesc, stopKval, stopCompOp, cursor);
+    }
+    // 이외의 경우,
+    else {
+        e = edubtm_Fetch(root, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
+    }
+    if (e < eNOERROR) ERR(e);
 
     return(eNOERROR);
 
