@@ -58,6 +58,15 @@
  *  error code
  *    eBADPARAMETER_BTM
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에 새로운 object를 삽입함
+ * 
+ * 관련 함수:
+ *  - edubtm_Insert()
+ *  - edubtm_root_insert()
+ *  - BfM_GetTrain(): ???
+ *  - BfM_FreeTrain(): ???
  */
 Four EduBtM_InsertObject(
     ObjectID *catObjForFile,	/* IN catalog object of B+ tree file */
@@ -91,13 +100,23 @@ Four EduBtM_InsertObject(
     if (oid == NULL) ERR(eBADPARAMETER_BTM);    
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for (i = 0; i < kdesc->nparts; i++) {
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
     
-    
+    // edubtm_Insert()를 호출하여 새로운 object에 대한 <object의 key, object ID> pair를 B+ tree 색인에 삽입함
+    // Four EduBtM_InsertObject(ObjectID*, PageID*, KeyDesc*, KeyValue*, ObjectID*, Pool*, DeallocListElem*)
+    e = edubtm_Insert(catObjForFile, root, kdesc, kval, oid, lf, lh, &item, dlPool, dlHead);
+    if (e < eNOERROR) ERR(e);
+
+    // Root page에서 split이 발생하여 새로운 root page 생성이 필요한 경우, edubtm_root_insert()를 호출하여 이를 처리함
+    if (lh) {
+        e = edubtm_root_insert(catObjForFile, root, &item);
+        if (e < eNOERROR) ERR(e);
+    }
+
     return(eNOERROR);
     
 }   /* EduBtM_InsertObject() */
