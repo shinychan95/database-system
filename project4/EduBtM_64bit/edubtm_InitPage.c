@@ -73,8 +73,7 @@ Four edubtm_InitInternal(
     if (e < eNOERROR) ERR(e);
 
     // Page header를 internal page로 초기화함
-    page->hdr.pid.pageNo = internal->pageNo;
-    page->hdr.pid.volNo = internal->volNo;
+    MAKE_PAGEID(page->hdr.pid, internal->pageNo, internal->volNo);
     page->hdr.flags = BTREE_PAGE_TYPE;
     if (root) page->hdr.type = ROOT;
     else page->hdr.type = INTERNAL;
@@ -134,8 +133,7 @@ Four edubtm_InitLeaf(
     if (e < eNOERROR) ERR(e);
 
     // Page header를 leaf page로 초기화함
-    page->hdr.pid.pageNo = leaf->pageNo;
-    page->hdr.pid.volNo = leaf->volNo;
+    MAKE_PAGEID(page->hdr.pid, leaf->pageNo, leaf->volNo);
     page->hdr.flags = BTREE_PAGE_TYPE;
     if (root) page->hdr.type = ROOT;
     else page->hdr.type = LEAF;
