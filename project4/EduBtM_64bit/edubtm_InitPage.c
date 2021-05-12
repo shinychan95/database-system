@@ -57,17 +57,39 @@
  * Returns:
  *  Error code
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  Page를 B+ tree 색인의 internal page로 초기화함
  */
 Four edubtm_InitInternal(
     PageID  *internal,		/* IN the PageID to be initialized */
     Boolean root,		/* IN Is it root ? */
-    Boolean isTmp)              /* IN Is it temporary ? - COOKIE12FEB98 */
+    Boolean isTmp)              /* IN Is it temporary ? - COOKIE12FEB98 (Not Use) */
 {
     Four e;			/* error number */
     BtreeInternal *page;	/* a page pointer */
 
+    e = BfM_GetNewTrain(internal, (char**)&page, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
 
-    
+    // Page header를 internal page로 초기화함
+    page->hdr.pid.pageNo = internal->pageNo;
+    page->hdr.pid.volNo = internal->volNo;
+    page->hdr.flags = BTREE_PAGE_TYPE;
+    if (root) page->hdr.type = ROOT;
+    else page->hdr.type = INTERNAL;
+    page->hdr.reserved = 0;
+    page->hdr.p0 = NIL;
+    page->hdr.nSlots = 0;
+    page->hdr.free = 0;
+    page->hdr.unused = 0;
+
+    e = BfM_SetDirty(internal, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, internal, PAGE_BUF);
+
+    e = BfM_FreeTrain(internal, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
     return(eNOERROR);
     
 }  /* edubtm_InitInternal() */
@@ -90,16 +112,46 @@ Four edubtm_InitInternal(
  * Returns:
  *  Error code
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  Page를 B+ tree 색인의 leaf page로 초기화함
+ * 
+ * 관련 함수:
+ *  - BfM_GetNewTrain(), 
+ *  - BfM_FreeTrain(), 
+ *  - BfM_SetDirty()
  */
 Four edubtm_InitLeaf(
     PageID *leaf,		/* IN the PageID to be initialized */
     Boolean root,		/* IN Is it root ? */
-    Boolean isTmp)              /* IN Is it temporary ? */
+    Boolean isTmp)      /* IN Is it temporary ? (Not Use) */
+
 {
     Four e;			/* error number */
     BtreeLeaf *page;		/* a page pointer */
 
+    e = BfM_GetNewTrain(leaf, (char**)&page, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
 
+    // Page header를 leaf page로 초기화함
+    page->hdr.pid.pageNo = leaf->pageNo;
+    page->hdr.pid.volNo = leaf->volNo;
+    page->hdr.flags = BTREE_PAGE_TYPE;
+    if (root) page->hdr.type = ROOT;
+    else page->hdr.type = LEAF;
+    page->hdr.reserved = 0;
+    page->hdr.nSlots = 0;
+    page->hdr.free = 0;
+    page->hdr.prevPage = NIL;
+    page->hdr.nextPage = NIL;
+    page->hdr.unused = 0;
+    
+
+    e = BfM_SetDirty(leaf, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, leaf, PAGE_BUF);
+    
+    e = BfM_FreeTrain(leaf, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
     return(eNOERROR);
     
