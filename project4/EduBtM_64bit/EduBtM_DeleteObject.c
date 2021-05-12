@@ -63,6 +63,16 @@
  *  error code
  *    eBADPARAMETER_BTM
  *    some errors caused by fucntion calls
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에서 object를 삭제함
+ * 
+ * 관련 함수:
+ *  - edubtm_root_insert(), 
+ *  - edubtm_Delete(), 
+ *  - btm_root_delete(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain()
  */
 Four EduBtM_DeleteObject(
     ObjectID *catObjForFile,	/* IN catalog object of B+-tree file */
@@ -97,18 +107,32 @@ Four EduBtM_DeleteObject(
     if (dlPool == NULL || dlHead == NULL) ERR(eBADPARAMETER_BTM);
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for(i = 0; i < kdesc->nparts; i++) {
+        if(kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
 
+	// /* Delete following 3 lines before implement this function */
+	// printf("Implementation of delete operation is optional (not compulsory),\n");
+	// printf("and delete operation has not been implemented yet.\n");
+	// return(eNOTSUPPORTED_EDUBTM);
 
-	/* Delete following 3 lines before implement this function */
-	printf("Implementation of delete operation is optional (not compulsory),\n");
-	printf("and delete operation has not been implemented yet.\n");
-	return(eNOTSUPPORTED_EDUBTM);
+    // edubtm_Delete()를 호출하여 삭제할 object에 대한 <object의 key, object ID> pair를 B+ tree 색인에서 삭제함
+    e = edubtm_Delete(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
+    if (e < eNOERROR) ERR(e);
 
+    // Root page에서 underflow가 발생한 경우, btm_root_delete()를 호출하여 이를 처리함
+    if (lf) {
+        e = btm_root_delete(&pFid, root, dlPool, dlHead);
+        if (e < eNOERROR) ERR(e);
+    }
+
+    // Root page에서 split이 발생한 경우, edubtm_root_insert()를 호출하여 이를 처리함
+    if (lh) {
+        e = edubtm_root_insert(catObjForFile, root, &item);
+        if (e < eNOERROR) ERR(e);
+    }
     
     return(eNOERROR);
     
