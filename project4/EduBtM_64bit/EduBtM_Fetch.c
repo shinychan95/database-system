@@ -141,14 +141,6 @@ Four EduBtM_Fetch(
  *    eBADBTREEPAGE_BTM
  *    some errors caused by function calls
  * 
- * 한글 설명:
- *  B+ tree 색인에서 검색 조건을 만족하는 현재 object의 다음 object를 검색하고, 검색된 object를 가리키는 cursor를 반환함
- * 
- * 관련 함수:
- *  - edubtm_FetchNext(), 
- *  - edubtm_KeyCompare(), 
- *  - BfM_GetTrain(), 
- *  - BfM_FreeTrain()
  */
 Four edubtm_Fetch(
     PageID              *root,          /* IN The current root of the subtree */

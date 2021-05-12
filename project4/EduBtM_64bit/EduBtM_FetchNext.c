@@ -66,6 +66,15 @@ Four edubtm_FetchNext(KeyDesc*, KeyValue*, Four, BtreeCursor*, BtreeCursor*);
  *    eBADPARAMETER_BTM
  *    eBADCURSOR
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에서 검색 조건을 만족하는 현재 object의 다음 object를 검색하고, 검색된 object를 가리키는 cursor를 반환함
+ * 
+ * 관련 함수:
+ *  - edubtm_FetchNext(), 
+ *  - edubtm_KeyCompare(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain()
  */
 Four EduBtM_FetchNext(
     PageID                      *root,          /* IN root page's PageID */
@@ -107,6 +116,9 @@ Four EduBtM_FetchNext(
         }
     }
 
+    e = edubtm_FetchNext(kdesc, kval, compOp, current, next);
+    if (e < eNOERROR) ERR(e);
+
     
     return(eNOERROR);
     
@@ -132,6 +144,7 @@ Four EduBtM_FetchNext(
  *  Error code
  *    eBADCOMPOP_BTM
  *    some errors caused by function calls
+ *
  */
 Four edubtm_FetchNext(
     KeyDesc  		*kdesc,		/* IN key descriptor */
