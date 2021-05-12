@@ -108,7 +108,7 @@ Four EduBtM_InsertObject(
     
     // edubtm_Insert()를 호출하여 새로운 object에 대한 <object의 key, object ID> pair를 B+ tree 색인에 삽입함
     // Four EduBtM_InsertObject(ObjectID*, PageID*, KeyDesc*, KeyValue*, ObjectID*, Pool*, DeallocListElem*)
-    e = edubtm_Insert(catObjForFile, root, kdesc, kval, oid, lf, lh, &item, dlPool, dlHead);
+    e = edubtm_Insert(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
     if (e < eNOERROR) ERR(e);
 
     // Root page에서 split이 발생하여 새로운 root page 생성이 필요한 경우, edubtm_root_insert()를 호출하여 이를 처리함
