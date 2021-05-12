@@ -53,6 +53,13 @@
  * Returns:
  *  error code
  *    some errors : by other function calls
+ * 
+ * 한글 설명:
+ *  색인 file에서 B+ tree 색인을 삭제함
+ * 
+ * 관련 함수:
+ *  - edubtm_FreePages()
+ *     - 자식 page들에 대해 재귀적으로 edubtm_FreePages() 함수를 호출하여 모두 deallocate한다.
  */
 Four EduBtM_DropIndex(
     PhysicalFileID *pFid,	/* IN FileID of the Btree file */
@@ -61,11 +68,14 @@ Four EduBtM_DropIndex(
     DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
     Four e;			/* for the error number */
-
+    
 
     /*@ Free all pages concerned with the root. */
-
+    // 자식 page들에 대해 재귀적으로 edubtm_FreePages() 함수를 호출한다.
+    e = edubtm_FreePages(pFid, rootPid, dlPool, dlHead);
+    if (e < eNOERROR) ERR(e);
 	
+
     return(eNOERROR);
     
 } /* EduBtM_DropIndex() */
