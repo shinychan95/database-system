@@ -140,6 +140,15 @@ Four EduBtM_Fetch(
  *    eBADCOMPOP_BTM
  *    eBADBTREEPAGE_BTM
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에서 검색 조건을 만족하는 현재 object의 다음 object를 검색하고, 검색된 object를 가리키는 cursor를 반환함
+ * 
+ * 관련 함수:
+ *  - edubtm_FetchNext(), 
+ *  - edubtm_KeyCompare(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain()
  */
 Four edubtm_Fetch(
     PageID              *root,          /* IN The current root of the subtree */
@@ -173,10 +182,10 @@ Four edubtm_Fetch(
 
     /* Error check whether using not supported functionality by EduBtM */
     int i;
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for (i = 0; i < kdesc->nparts; i++) {
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
 
 

@@ -111,12 +111,11 @@ Four edubtm_Insert(
 
     /* Error check whether using not supported functionality by EduBtM */
     int i;
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for (i = 0; i < kdesc->nparts; i++) {
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
-
     
     return(eNOERROR);
     
@@ -177,10 +176,10 @@ Four edubtm_InsertLeaf(
 
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
-    {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+    for (i = 0; i < kdesc->nparts; i++) {
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
             ERR(eNOTSUPPORTED_EDUBTM);
+        }
     }
 
     
