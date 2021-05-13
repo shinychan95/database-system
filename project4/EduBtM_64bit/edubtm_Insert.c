@@ -80,6 +80,25 @@
  *  Error code
  *    eBADBTREEPAGE_BTM
  *    some errors caused by function calls
+ * 
+ * 한글 설명:
+ *  파라미터로 주어진 page를 root page로 하는 B+ tree 색인에 새로운 object에 대한 
+ *  <object의 key, object ID> pair를 삽입하고, root page에서 split이 발생한 경우, 
+ *  split으로 생성된 새로운 page를 가리키는 internal index entry를 반환함
+ * 
+ * 관련 함수:
+ *  - edubtm_InsertLeaf()
+ *    - Leaf page에 새로운 index entry를 삽입하고, split이 발생한 경우, 
+ *    - split으로 생성된 새로운 leaf page를 가리키는 internal index entry를 반환함
+ * 
+ *  - edubtm_InsertInternal()
+ *    - Internal page에 새로운 index entry를 삽입하고, split이 발생한 경우, 
+ *    - split으로 생성된 새로운 internal page를 가리키는 internal index entry를 반환함
+ * 
+ *  - edubtm_BinarySearchInternal(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain(), 
+ *  - BfM_SetDirty()
  */
 Four edubtm_Insert(
     ObjectID                    *catObjForFile,         /* IN catalog object of B+-tree file */
@@ -97,6 +116,7 @@ Four edubtm_Insert(
     Four                        e;                      /* error number */
     Boolean                     lh;                     /* local 'h' */
     Boolean                     lf;                     /* local 'f' */
+    Boolean                     isEntry;                /* internal page 내 binary search를 통해 자식 검색 결과 */
     Two                         idx;                    /* index for the given key value */
     PageID                      newPid;                 /* a new PageID */
     KeyValue                    tKey;                   /* a temporary key */
@@ -116,6 +136,55 @@ Four edubtm_Insert(
             ERR(eNOTSUPPORTED_EDUBTM);
         }
     }
+
+    e = BfM_GetTrain(root, (char**)&apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    if (apage->any.hdr.type & INTERNAL) {
+        // Internal page에서 key 값보다 작거나 같은 key 값을 갖는 index entry를 검색하고, 검색된 entry의 위치를 반환(slot 번호)
+        // 주어진 key 값과 같은 entry가 있다면 -> slot 번호 및 TRUE
+        // 주어진 key 값과 같은 entry가 없다면 -> 보다 작지만 그 중 제일 큰 entry의 slot 번호 및 FALSE
+        // 위 두 경우에 해당하는 entry가 없다면 -> slot 번호 -1 반환
+        isEntry = edubtm_BinarySearchInternal(apage, kdesc, kval, &idx);
+
+        // 위 결과를 통해 자식 페이지의 PageID를 생성한다.
+        if (idx == -1) {
+            MAKE_PAGEID(newPid, root->volNo, apage->bi.hdr.p0);
+        }
+        else {
+            // slot array의 type이 project3의 SlottedPageSlot가 아닌 Two이다.
+            iEntryOffset = apage->bi.slot[-idx];
+            iEntry = (btm_InternalEntry*) &apage->bi.data[iEntryOffset];
+            MAKE_PAGEID(newPid, root->volNo, iEntry->spid);
+        }
+        // 결정된 자식 page를 root page로 하는 B+ subtree에 새로운 pair를 삽입하기 위해 재귀적으로 edubtm_Insert()를 호출함
+        e = edubtm_Insert(catObjForFile, &newPid, kdesc, kval, oid, &lf, &lh, &litem, dlPool, dlHead);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+
+        // 결정된 자식 page에서 split이 발생한 경우
+        if (lh) {
+            // 현재 root page(internal page)에 entry를 삽입한다.
+            // 만약 root page에서 split이 발생하면, item 내에 생성된 새로운 page를 가리키는 internal index entry를 반환함
+            e = edubtm_InsertInternal(catObjForFile, apage, &litem, idx, h, item);
+            if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+        }
+    }
+    else if (apage->any.hdr.type & LEAF) {
+        e = edubtm_InsertLeaf(catObjForFile, root, apage, kdesc, kval, oid, f, h, item);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+    }
+    else {
+        ERRB1(eBADBTREEPAGE_BTM, root, PAGE_BUF);
+    }
+
+    // 자식이 split된 경우 수정 사항을 반영
+    if (lh) {
+        e = BfM_SetDirty(root, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+    }
+    
+    e = BfM_FreeTrain(root, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
     return(eNOERROR);
     
