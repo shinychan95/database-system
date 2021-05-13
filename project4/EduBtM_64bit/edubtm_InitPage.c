@@ -75,8 +75,8 @@ Four edubtm_InitInternal(
     // Page header를 internal page로 초기화함
     MAKE_PAGEID(page->hdr.pid, internal->pageNo, internal->volNo);
     page->hdr.flags = BTREE_PAGE_TYPE;
-    if (root) page->hdr.type = ROOT;
-    else page->hdr.type = INTERNAL;
+    page->hdr.type = INTERNAL;
+    if (root) page->hdr.type |= ROOT;
     page->hdr.reserved = 0;
     page->hdr.p0 = NIL;
     page->hdr.nSlots = 0;
@@ -135,8 +135,8 @@ Four edubtm_InitLeaf(
     // Page header를 leaf page로 초기화함
     MAKE_PAGEID(page->hdr.pid, leaf->pageNo, leaf->volNo);
     page->hdr.flags = BTREE_PAGE_TYPE;
-    if (root) page->hdr.type = ROOT;
-    else page->hdr.type = LEAF;
+    page->hdr.type = LEAF;
+    if (root) page->hdr.type |= ROOT;
     page->hdr.reserved = 0;
     page->hdr.nSlots = 0;
     page->hdr.free = 0;
