@@ -70,6 +70,18 @@
  * Note:
  *  The caller should call BfM_SetDirty() for 'fpage'.
  * 
+ * 한글 설명:
+ *  Overflow가 발생한 internal page를 split 하여 파라미터로 주어진 index entry를 삽입하고, 
+ *  split으로 생성된 새로운 internal page를 가리키는 internal index entry를 반환함
+ * 
+ * 관련 함수:
+ *  - edubtm_InitInternal(), 
+ *  - edubtm_CompactInternalPage(), 
+ *  - btm_AllocPage(), 
+ *  - BfM_GetNewTrain(), 
+ *  - BfM_FreeTrain(), 
+ *  - BfM_SetDirty()
+ * 
  */
 Four edubtm_SplitInternal(
     ObjectID                    *catObjForFile,         /* IN catalog object of B+ tree file */
@@ -86,15 +98,145 @@ Four edubtm_SplitInternal(
     Four                        sum;                    /* the size of a filled area */
     Boolean                     flag = FALSE;           /* TRUE if 'item' become a member of fpage */
     PageID                      newPid;                 /* for a New Allocated Page */
+    BtreeInternal               tpage;                  /* a temporary page for the given page */
     BtreeInternal               *npage;                 /* a page pointer for the new allocated page */
     Two                         fEntryOffset;           /* starting offset of an entry in fpage */
     Two                         nEntryOffset;           /* starting offset of an entry in npage */
     Two                         entryLen;               /* length of an entry */
     btm_InternalEntry           *fEntry;                /* internal entry in the given page, fpage */
+    btm_InternalEntry           *tEntry;                /* internal entry in the given page, tpage */
     btm_InternalEntry           *nEntry;                /* internal entry in the new page, npage*/
     Boolean                     isTmp;
 
+    // 새로운 page를 할당 받음
+    e = btm_AllocPage(catObjForFile, &fpage->hdr.pid, &newPid);
+    if (e < eNOERROR) ERR(e);
 
+    // 할당 받은 page를 internal page로 초기화함
+    e = edubtm_InitInternal(&newPid, FALSE, FALSE);
+    if (e < eNOERROR) ERR(e);
+
+    // Disk 상에서 할당되지 않은 새로운 page/train을 buffer element에 fix 함
+    e = BfM_GetNewTrain(&newPid, (char**)&npage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    // 기존 index entry들 및 삽입할 index entry를 key 순으로 정렬하여 
+    // overflow가 발생한 page 및 할당 받은 page에 나누어 저장함
+    tpage = *fpage;
+
+    // fpage에 다시 데이터를 입력한다.
+    sum = 0;
+    i = 0; // for fpage
+
+    // 먼저, overflow가 발생한 page에 데이터 영역을 50% 이상 채우는 수의 index entry들을 저장함
+    for (j = 0; j < tpage.hdr.nSlots && sum < BL_HALF; j++) {   
+        if (high == j) {
+            entryLen = sizeof(ShortPageID) + sizeof(Two) + ALIGNED_LENGTH(item->klen);
+
+            fpage->slot[-i] = sum;
+            fEntry = (btm_InternalEntry*)&fpage->data[fpage->slot[-i]];
+            
+            memcpy(fEntry, item, entryLen);
+
+            sum += entryLen;
+            i++;
+            
+            flag = TRUE;
+
+            if (sum < BL_HALF) break;
+        }
+
+        // j번째 슬롯에 해당하는 index entry들을 fpage에 새롭게 저장한다
+        tEntry = (btm_InternalEntry*)&tpage.data[tpage.slot[-j]];
+        entryLen = sizeof(ShortPageID) + sizeof(Two) + ALIGNED_LENGTH(tEntry->klen);
+
+        fpage->slot[-i] = sum;
+        fEntry = (btm_InternalEntry*)&fpage->data[fpage->slot[-i]];
+
+        memcpy(fEntry, tEntry, entryLen);
+
+        sum += entryLen;
+        i++;
+    }
+
+    // fpage의 header를 갱신함
+    fpage->hdr.free = sum;
+    fpage->hdr.nSlots = i;
+    fpage->hdr.unused = 0;
+
+
+    // 할당 받은 page의 header의 p0 변수에 아직 저장되지 않은 index entry 중 
+    // 첫 번째 index entry (1st entry) 가 가리키는 자식 page의 번호를 저장함
+    if (!flag && j == high) {
+        npage->hdr.p0 = item->spid;
+
+        ritem->spid = newPid.pageNo;
+        ritem->klen = item->klen;
+        memcpy(ritem->kval, item->kval, item->klen);
+
+        flag = TRUE;
+    }
+    else {
+        tEntry = (btm_InternalEntry*)&tpage.data[tpage.slot[-j]];
+        npage->hdr.p0 = tEntry->spid;
+
+        ritem->spid = newPid.pageNo;
+        ritem->klen = tEntry->klen;
+        memcpy(ritem->kval, tEntry->kval, tEntry->klen);
+        
+        j++;
+    }
+    
+    // 나머지 index entry들을 할당 받은 page에 저장함
+    sum = 0;
+    i = 0; // for npage
+
+    for (; j < tpage.hdr.nSlots; j++) {
+        if (high == j && !flag) {
+            entryLen = sizeof(ShortPageID) + sizeof(Two) + ALIGNED_LENGTH(item->klen);
+
+            npage->slot[-i] = sum;
+            nEntry = (btm_InternalEntry*)&npage->data[npage->slot[-i]];
+            
+            memcpy(nEntry, item, entryLen);
+
+            sum += entryLen;
+            i++;
+            
+            flag = TRUE;
+        }
+
+        // j번째 슬롯에 해당하는 index entry들을 fpage에 새롭게 저장한다
+        tEntry = (btm_InternalEntry*)&tpage.data[tpage.slot[-j]];
+        entryLen = sizeof(ShortPageID) + sizeof(Two) + ALIGNED_LENGTH(tEntry->klen);
+
+        npage->slot[-i] = sum;
+        nEntry = (btm_InternalEntry*)&npage->data[fpanpagege->slot[-i]];
+
+        memcpy(nEntry, tEntry, entryLen);
+
+        sum += entryLen;
+        i++;
+    }
+
+    // npage의 header를 갱신함
+    npage->hdr.free = sum;
+    npage->hdr.nSlots = i;
+    npage->hdr.unused = 0;
+    
+
+    // Split된 page가 ROOT일 경우, type을 INTERNAL로 변경함
+    if (fpage->hdr.type & ROOT) fpage->hdr.type = INTERNAL;
+
+
+    e = BfM_SetDirty(&newPid, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, npage, PAGE_BUF);
+
+    e = BfM_SetDirty(&fpage->hdr.pid, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, fpage, PAGE_BUF);
+    
+    e = BfM_FreeTrain(&newPid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
     return(eNOERROR);
     
@@ -132,7 +274,9 @@ Four edubtm_SplitInternal(
  * 
  * 관련 함수:
  *  - edubtm_InitLeaf(),
- *  - edubtm_CompactLeafPage(), 
+ *  - edubtm_CompactLeafPage()
+ *    - Leaf page의 데이터 영역의 모든 자유 영역이 연속된 하나의 contiguous free area를 형성하도록 index entry들의 offset를 조정함
+ *    - 두번째 파라미터 slotNo에 대응하는 index entry를 제일 끝으로 보낸다.
  *  - btm_AllocPage(), 
  *  - BfM_GetTrain(), 
  *  - BfM_GetNewTrain(), 
@@ -174,7 +318,7 @@ Four edubtm_SplitLeaf(
  
     
     // 새로운 page를 할당 받음
-    e = btm_AllocPage(catObjForFile, root, &newPid);
+    e = btm_AllocPage(catObjForFile, &fpage->hdr.pid, &newPid);
     if (e < eNOERROR) ERR(e);
 
     // 할당 받은 page를 leaf page로 초기화함
@@ -285,6 +429,8 @@ Four edubtm_SplitLeaf(
     ritem->klen = itemEntry->klen;
     memcpy(ritem->kval, itemEntry->kval, itemEntry->klen);
 
+    // Split된 page가 ROOT일 경우, type을 LEAF로 변경함
+    if (fpage->hdr.type & ROOT) fpage->hdr.type = LEAF;
 
     e = BfM_SetDirty(&newPid, PAGE_BUF);
     if (e < eNOERROR) ERRB1(e, npage, PAGE_BUF);
