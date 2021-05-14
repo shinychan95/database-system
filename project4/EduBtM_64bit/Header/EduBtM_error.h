@@ -59,6 +59,15 @@ BEGIN_MACRO \
     if (1) return(e); \
 END_MACRO
 
+#define ERRB3(e, pid1, t1, pid2, t2, pid3, t3) \
+BEGIN_MACRO \
+    PRTERR(e); \
+    (Four) BfM_FreeTrain((pid1),(t1)); \
+    (Four) BfM_FreeTrain((pid2),(t2)); \
+    (Four) BfM_FreeTrain((pid3),(t3)); \
+    if (1) return(e); \
+END_MACRO
+
 /*
  * Function Prototypes
  */
