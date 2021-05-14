@@ -122,7 +122,7 @@ Four edubtm_SplitInternal(
 
     // 기존 index entry들 및 삽입할 index entry를 key 순으로 정렬하여 
     // overflow가 발생한 page 및 할당 받은 page에 나누어 저장함
-    tpage = *fpage;
+    memcpy(&tpage, fpage, PAGESIZE);
 
     // fpage에 다시 데이터를 입력한다.
     sum = 0;
@@ -331,7 +331,7 @@ Four edubtm_SplitLeaf(
 
     // 기존 index entry들 및 삽입할 index entry를 key 순으로 정렬하여 overflow가 발생한 page 및 할당 받은 page에 나누어 저장함
     // 먼저, overflow가 발생한 page에 데이터 영역을 50% 이상 채우는 수의 index entry들을 저장함
-    tpage = *fpage;
+    memcpy(&tpage, fpage, PAGESIZE);
     
     // fpage에 다시 데이터를 입력한다.
     sum = 0;

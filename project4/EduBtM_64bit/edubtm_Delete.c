@@ -279,7 +279,7 @@ Four edubtm_DeleteLeaf(
 
     // Leaf page의 header를 갱신함
     apage->hdr.nSlots--;
-    apage->hdr.unused += entryLen = sizeof(Two) + sizeof(Two) + alignedKlen + sizeof(ObjectID); 
+    apage->hdr.unused += entryLen; 
 
     // Leaf page에서 underflow가 발생한 경우 out parameter인 f를 TRUE로 설정함
     if (BL_FREE(apage) > BL_HALF) *f = TRUE;
