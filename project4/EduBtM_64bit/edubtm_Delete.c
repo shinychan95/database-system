@@ -90,6 +90,18 @@ Four edubtm_DeleteLeaf(PhysicalFileID*, PageID*, BtreeLeaf*, KeyDesc*, KeyValue*
  *  f    : TRUE if the given root page is not half full.
  *  h    : TRUE if the given page is splitted.
  *  item : The internal item to be inserted into the parent if 'h' is TRUE.
+ * 
+ * 한글 설명:
+ *  파라미터로 주어진 page를 root page로 하는 B+ tree 색인에서 <object의 key, object ID> pair를 삭제함
+ * 
+ * 관련 함수:
+ *  - edubtm_InsertInternal()
+ *  - edubtm_DeleteLeaf(), 
+ *  - edubtm_BinarySearchInternal(), 
+ *  - btm_Underflow(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain(), 
+ *  - BfM_SetDirty()
  */
 Four edubtm_Delete(
     ObjectID                    *catObjForFile, /* IN catalog object of B+ tree file */
@@ -127,11 +139,55 @@ Four edubtm_Delete(
 
         
     *h = *f = FALSE;
+
+    e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    GET_PTR_TO_CATENTRY_FOR_BTREE(catObjForFile, catPage, catEntry);
+    MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
     
+    e = BfM_GetTrain(root, (char**)&rpage, PAGE_BUF);
+    if (e < eNOERROR) ERRB1(e, (TrainID*)catObjForFile, PAGE_BUF);
+
+    // 파라미터로 주어진 root page가 internal page인 경우,
+    if (rpage->any.hdr.type & INTERNAL) {
+        // 삭제할 <object의 key, object ID> pair가 저장된 leaf page를 찾기 위해 다음으로 방문할 자식 page를 결정함
+        edubtm_BinarySearchInternal(rpage, kdesc, kval, &idx);
+
+        child.volNo = root->volNo;
+        if (idx == -1) {
+            child.pageNo = rpage->bi.hdr.p0;
+        }
+        else {
+            iEntry = (btm_InternalEntry*)&rpage->bi.data[rpage->bi.slot[-idx]];
+            child.pageNo = iEntry->spid;
+        }
+        
+        e = edubtm_Delete(catObjForFile, &child, kdesc, kval, oid, &lf, &lh, &litem, dlPool, dlHead);
+        if (e < eNOERROR) ERRB2(e, root, PAGE_BUF, (TrainID*)catObjForFile, PAGE_BUF);
+        
+        if (lf) {
+            e = btm_Underflow(&pFid, rpage, &child, idx, f, h, &litem, dlPool, dlHead);
+            if (e < eNOERROR) ERRB2(e, root, PAGE_BUF, (TrainID*)catObjForFile, PAGE_BUF);
+
+            e = BfM_SetDirty(root, PAGE_BUF);
+            if (e < eNOERROR) ERRB2(e, root, PAGE_BUF, (TrainID*)catObjForFile, PAGE_BUF);
+        }
+    }
+    // 파라미터로 주어진 root page가 leaf page인 경우,
+    else if (rpage->any.hdr.type & LEAF) {
+        e = edubtm_DeleteLeaf(&pFid, root, rpage, kdesc, kval, oid, f, h, &litem, dlPool, dlHead);
+        if (e < eNOERROR) ERRB2(e, root, PAGE_BUF, (TrainID*)catObjForFile, PAGE_BUF);
+    }
+    else {
+        ERR(eBADBTREEPAGE_BTM);
+    }
+
+    e = BfM_FreeTrain(root, PAGE_BUF);
+    if (e<0) ERRB1(e, (TrainID*)catObjForFile, PAGE_BUF);
     
-    /* Delete following 2 lines before implement this function */
-    printf("Implementation of delete operation is optional (not compulsory),\n");
-    printf("and delete operation has not been implemented yet.\n");
+    e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+    if (e<0) ERR(e);
 
 
     return(eNOERROR);
@@ -162,6 +218,14 @@ Four edubtm_Delete(
  *  f    : TRUE if the given root page is not half full.
  *  h    : TRUE if the given page is splitted.
  *  item : The internal item to be inserted into the parent if 'h' is TRUE.
+ * 
+ * 한글 설명:
+ *  Leaf page에서 <object의 key, object ID> pair를 삭제함
+ * 
+ * 관련 함수:
+ *  - edubtm_BinarySearchLeaf(), 
+ *  - btm_ObjectIdComp(), 
+ *  - BfM_SetDirty()
  */ 
 Four edubtm_DeleteLeaf(
     PhysicalFileID              *pFid,          /* IN FileID of the Btree file */
@@ -197,15 +261,31 @@ Four edubtm_DeleteLeaf(
     /* Error check whether using not supported functionality by EduBtM */
     for (i = 0; i < kdesc->nparts; i++) {
         if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING) {
-            ERR(eNOTSUPPORTED_EDUBTM);
+            return(eNOTSUPPORTED_EDUBTM);
         }
     }
 
+    // 삭제할 <object의 key, object ID> pair가 저장된 index entry의 offset이 저장된 slot을 삭제함
+    found = edubtm_BinarySearchLeaf(apage, kdesc, kval, &idx);
+    if (!found) return(eNOTFOUND_BTM);
 
-    /* Delete following 2 lines before implement this function */
-    printf("Implementation of delete operation is optional (not compulsory),\n");
-    printf("and delete operation has not been implemented yet.\n");
+    lEntryOffset = apage->slot[-idx];
+    lEntry = (btm_LeafEntry*)&apage->data[lEntryOffset];
+    alignedKlen = ALIGNED_LENGTH(lEntry->klen);
 
+    for (i = idx; i < apage->hdr.nSlots; i++) {
+        apage->slot[-i] = apage->slot[-i - 1];
+    }
+
+    // Leaf page의 header를 갱신함
+    apage->hdr.nSlots--;
+    apage->hdr.unused += entryLen = sizeof(Two) + sizeof(Two) + alignedKlen + sizeof(ObjectID); 
+
+    // Leaf page에서 underflow가 발생한 경우 out parameter인 f를 TRUE로 설정함
+    if (BL_FREE(apage) > BL_HALF) *f = TRUE;
+
+    e = BfM_SetDirty(pid, PAGE_BUF);
+    if (e < eNOERROR) return(e);
 	      
     return(eNOERROR);
     
