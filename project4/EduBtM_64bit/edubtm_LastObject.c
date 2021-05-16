@@ -94,6 +94,43 @@ Four edubtm_LastObject(
         }
     }
 
+    curPid = *root;
+    e = BfM_GetTrain(&curPid, (char**)&apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    while (!(apage->any.hdr.type & LEAF)) {
+        if (!(apage->any.hdr.type & INTERNAL)) {
+            ERRB1(eBADPAGE_BTM, &curPid, PAGE_BUF);
+        }
+
+        iEntryOffset = apage->bi.hdr.nSlots - 1;
+        iEntry = (btm_InternalEntry*)&apage->bi.data[apage->bi.slot[-iEntryOffset]];
+        
+        MAKE_PAGEID(child, curPid.volNo, iEntry->spid);
+
+        e = BfM_FreeTrain(&curPid, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(eBADPAGE_BTM, &child, PAGE_BUF);
+
+        e = BfM_GetTrain(&child, (char**)&apage, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(eBADPAGE_BTM, &curPid, PAGE_BUF);
+        
+        curPid = child;
+    }
+
+    lEntryOffset = apage->bl.hdr.nSlots - 1;
+    lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-lEntryOffset]];
+    alignedKlen = ALIGNED_LENGTH(lEntry->klen);
+
+    cursor->flag = CURSOR_ON;
+    cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+    cursor->key.len = lEntry->klen;
+    memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+    cursor->leaf = curPid;
+    cursor->slotNo = lEntryOffset;
+
+    e = BfM_FreeTrain(&curPid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
     return(eNOERROR);
     
 } /* edubtm_LastObject() */

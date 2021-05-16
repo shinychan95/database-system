@@ -89,7 +89,39 @@ Four edubtm_FirstObject(
             ERR(eNOTSUPPORTED_EDUBTM);
         }
     }
+
+    curPid = *root;
+    e = BfM_GetTrain(&curPid, (char**)&apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    while (!(apage->any.hdr.type & LEAF)) {
+        if (!(apage->any.hdr.type & INTERNAL)) {
+            ERRB1(eBADPAGE_BTM, &curPid, PAGE_BUF);
+        }
     
+        MAKE_PAGEID(child, curPid.volNo, apage->bi.hdr.p0);
+
+        e = BfM_FreeTrain(&curPid, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(eBADPAGE_BTM, &child, PAGE_BUF);
+
+        e = BfM_GetTrain(&child, (char**)&apage, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(eBADPAGE_BTM, &curPid, PAGE_BUF);
+        
+        curPid = child;
+    }
+
+    lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[0]];
+    alignedKlen = ALIGNED_LENGTH(lEntry->klen);
+
+    cursor->flag = CURSOR_ON;
+    cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+    cursor->key.len = lEntry->klen;
+    memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+    cursor->leaf = curPid;
+    cursor->slotNo = 0;
+
+    e = BfM_FreeTrain(&curPid, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
 
     return(eNOERROR);
     
