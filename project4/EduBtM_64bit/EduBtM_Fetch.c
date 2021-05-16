@@ -141,6 +141,18 @@ Four EduBtM_Fetch(
  *    eBADBTREEPAGE_BTM
  *    some errors caused by function calls
  * 
+ * 한글 설명:
+ *  파라미터로 주어진 page를 root page로 하는 B+ tree 색인에서 검색 조건을 만족하는 
+ *  첫 번째 <object의 key, object ID> pair가 저장된 leaf index entry를 검색하고, 
+ *  검색된 leaf index entry를 가리키는 cursor를 반환함. 첫 번째 object는, 
+ *  검색 조건을 만족하는 object들 중 검색 시작 key 값과 가장 가까운 key 값을 가지는 object를 의미함
+ * 
+ * 관련 함수:
+ *  - edubtm_BinarySearchLeaf(), 
+ *  - edubtm_BinarySearchInternal(), 
+ *  - edubtm_KeyCompare(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain()
  */
 Four edubtm_Fetch(
     PageID              *root,          /* IN The current root of the subtree */
@@ -180,6 +192,121 @@ Four edubtm_Fetch(
         }
     }
 
+    e = BfM_GetTrain(root, (char**)&apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    // 파라미터로 주어진 root page가 internal page인 경우,
+    if (apage->any.hdr.type & INTERNAL) {
+        // 다음으로 방문할 자식 page를 결정함
+        edubtm_BinarySearchInternal(apage, kdesc, startKval, &idx);
+
+        child.volNo = root->volNo;
+        if (idx == -1) {
+            child.pageNo = apage->bi.hdr.p0;
+        }
+        else {
+            iEntry = (btm_InternalEntry*)&apage->bi.data[apage->bi.slot[-idx]];
+            child.pageNo = iEntry->spid;
+        }
+        e = edubtm_Fetch(&child, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+    }
+    // 파라미터로 주어진 root page가 leaf page인 경우,
+    else if (apage->any.hdr.type & LEAF) {
+        // 검색 조건을 만족하는 첫 번째 <object의 key, object ID> pair가 저장된 index entry를 검색함
+        found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
+
+        // 목표: 검색 시작 key 값과 가장 가까운 key 값을 찾는다.
+
+        // SM_EQ: 검색 시작/종료 key 값과 같은           (0x1 = 1 = 001)
+        // SM_LT: 검색 시작/종료 key 값보다 작은         (0x2 = 2 = 010)
+        // SM_LE: 검색 시작/종료 key 값보다 작거나 같은   (0x3 = 3 = 011)
+        // SM_GT: 검색 시작/종료 key 값보다 큰           (0x4 = 4 = 100)
+        // SM_GE: 검색 시작/종료 key 값보다 크거나 같은   (0x5 = 5 = 101)
+
+        // 같다는 조건 있으면, 발견한 slot no로 반환
+        if ((startCompOp & SM_EQ) && found) {
+            cursor->flag = CURSOR_ON;
+            slotNo = idx;
+            leafPid = root;
+        }
+        
+        else if (startCompOp & SM_LT) {
+            // 주어진 key 값보다 작은 entry가 없을 경우,
+            if (idx == -1) {
+                if (apage->bl.hdr.prevPage == NIL) {
+                    cursor->flag = CURSOR_EOS;
+                }
+                else {
+                    MAKE_PAGEID(prevPid, root->volNo, apage->bl.hdr.prevPage);
+                    
+                    e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
+                    if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+                    
+                    cursor->flag = CURSOR_ON;
+                    slotNo = apage->bl.hdr.nSlots - 1;
+                    leafPid = &prevPid;
+                }
+            }
+            else {
+                cursor->flag = CURSOR_ON;
+                slotNo = found ? idx - 1: idx;
+                leafPid = root;
+            }
+        }
+        else if (startCompOp & SM_GT) {
+            if (idx == apage->bl.hdr.nSlots - 1) {
+                if (apage->bl.hdr.nextPage == NIL) {
+                    cursor->flag = CURSOR_EOS;
+                }
+                else {
+                    MAKE_PAGEID(nextPid, root->volNo, apage->bl.hdr.nextPage);
+                    
+                    e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
+                    if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+                    
+                    cursor->flag = CURSOR_ON;
+                    slotNo = 0;
+                    leafPid = &nextPid;
+                }
+            }
+            else {
+                cursor->flag = CURSOR_ON;
+                slotNo = idx + 1;
+                leafPid = root;
+            }
+        }
+        else {
+            cursor->flag = CURSOR_EOS;
+        }
+
+        if (cursor->flag == CURSOR_ON) {
+            lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+            cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+            cursor->key.len = lEntry->klen;
+	        memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+            cursor->leaf = *leafPid;
+            cursor->slotNo = slotNo;
+        }
+    }
+
+    else {
+        ERRB1(eBADBTREEPAGE_BTM, root, PAGE_BUF);
+    }
+
+    if (!IS_NILPAGEID(prevPid)) {
+        e = BfM_FreeTrain(&prevPid, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+    }
+    
+    if (!IS_NILPAGEID(nextPid)) {
+        e = BfM_FreeTrain(&nextPid, PAGE_BUF);
+        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+    }
+
+    e = BfM_FreeTrain(root, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
 
     return(eNOERROR);
     
