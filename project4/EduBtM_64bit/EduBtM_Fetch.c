@@ -150,7 +150,13 @@ Four EduBtM_Fetch(
  * 관련 함수:
  *  - edubtm_BinarySearchLeaf(), 
  *  - edubtm_BinarySearchInternal(), 
- *  - edubtm_KeyCompare(), 
+ *  - edubtm_KeyCompare()
+ *    - 파라미터로 주어진 두 key 값의 대소를 비교하고, 비교 결과를 반환함. 
+ *    - Variable length string의 경우 사전식 순서를 이용하여 비교함
+ *    - 두 key 값이 같은 경우, EQUAL을 반환함
+ *    - 첫 번째 key 값이 큰 경우, GREATER를 반환함
+ *    - 첫 번째 key 값이 작은 경우, LESS를 반환함
+ * 
  *  - BfM_GetTrain(), 
  *  - BfM_FreeTrain()
  */
@@ -198,23 +204,40 @@ Four edubtm_Fetch(
     // 파라미터로 주어진 root page가 internal page인 경우,
     if (apage->any.hdr.type & INTERNAL) {
         // 다음으로 방문할 자식 page를 결정함
-        edubtm_BinarySearchInternal(apage, kdesc, startKval, &idx);
 
-        child.volNo = root->volNo;
-        if (idx == -1) {
-            child.pageNo = apage->bi.hdr.p0;
-        }
-        else {
+        // startCompOp가 GREATEST인 경우,
+        if (startCompOp & SM_EOF) {
+            idx = apage->bi.hdr.nSlots - 1;
+
+            child.volNo = root->volNo;
             iEntry = (btm_InternalEntry*)&apage->bi.data[apage->bi.slot[-idx]];
             child.pageNo = iEntry->spid;
         }
+        // startCompOp가 LEAST인 경우,
+        else if (startCompOp & SM_BOF) {
+            child.volNo = root->volNo;
+            child.pageNo = apage->bi.hdr.p0;
+        }
+        // 그 외,
+        else {
+            edubtm_BinarySearchInternal(apage, kdesc, startKval, &idx);
+
+            child.volNo = root->volNo;
+            if (idx == -1) {
+                child.pageNo = apage->bi.hdr.p0;
+            }
+            else {
+                iEntry = (btm_InternalEntry*)&apage->bi.data[apage->bi.slot[-idx]];
+                child.pageNo = iEntry->spid;
+            }
+        }
+        
         e = edubtm_Fetch(&child, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
         if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
     }
     // 파라미터로 주어진 root page가 leaf page인 경우,
     else if (apage->any.hdr.type & LEAF) {
         // 검색 조건을 만족하는 첫 번째 <object의 key, object ID> pair가 저장된 index entry를 검색함
-        found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
 
         // 목표: 검색 시작 key 값과 가장 가까운 key 값을 찾는다.
 
@@ -223,64 +246,19 @@ Four edubtm_Fetch(
         // SM_LE: 검색 시작/종료 key 값보다 작거나 같은   (0x3 = 3 = 011)
         // SM_GT: 검색 시작/종료 key 값보다 큰           (0x4 = 4 = 100)
         // SM_GE: 검색 시작/종료 key 값보다 크거나 같은   (0x5 = 5 = 101)
+        // SM_EOF: GREATEST                            (0x10 = 16 = 10000)
+        // SM_BOF: LEAST                                (0x20 = 32 = 20000)
 
-        // 같다는 조건 있으면, 발견한 slot no로 반환
-        if ((startCompOp & SM_EQ) && found) {
+        // Cursor를 반환한다. (Cursor에는 flag, oid, key, leaf, slotNo)
+
+        // Output Example -> Key: 199, OID: (1000, 777, 199, 199)
+
+        // startCompOp가 GREATEST인 경우,
+        if (startCompOp & SM_EOF) {
             cursor->flag = CURSOR_ON;
-            slotNo = idx;
+            slotNo = apage->bl.hdr.nSlots - 1;
             leafPid = root;
-        }
-        
-        else if (startCompOp & SM_LT) {
-            // 주어진 key 값보다 작은 entry가 없을 경우,
-            if (idx == -1) {
-                if (apage->bl.hdr.prevPage == NIL) {
-                    cursor->flag = CURSOR_EOS;
-                }
-                else {
-                    MAKE_PAGEID(prevPid, root->volNo, apage->bl.hdr.prevPage);
-                    
-                    e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
-                    if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
-                    
-                    cursor->flag = CURSOR_ON;
-                    slotNo = apage->bl.hdr.nSlots - 1;
-                    leafPid = &prevPid;
-                }
-            }
-            else {
-                cursor->flag = CURSOR_ON;
-                slotNo = found ? idx - 1: idx;
-                leafPid = root;
-            }
-        }
-        else if (startCompOp & SM_GT) {
-            if (idx == apage->bl.hdr.nSlots - 1) {
-                if (apage->bl.hdr.nextPage == NIL) {
-                    cursor->flag = CURSOR_EOS;
-                }
-                else {
-                    MAKE_PAGEID(nextPid, root->volNo, apage->bl.hdr.nextPage);
-                    
-                    e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
-                    if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
-                    
-                    cursor->flag = CURSOR_ON;
-                    slotNo = 0;
-                    leafPid = &nextPid;
-                }
-            }
-            else {
-                cursor->flag = CURSOR_ON;
-                slotNo = idx + 1;
-                leafPid = root;
-            }
-        }
-        else {
-            cursor->flag = CURSOR_EOS;
-        }
 
-        if (cursor->flag == CURSOR_ON) {
             lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
             
             cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
@@ -288,6 +266,139 @@ Four edubtm_Fetch(
 	        memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
             cursor->leaf = *leafPid;
             cursor->slotNo = slotNo;
+        }
+        // startCompOp가 LEAST인 경우,
+        else if (startCompOp & SM_BOF) {
+            cursor->flag = CURSOR_ON;
+            slotNo = 0;
+            leafPid = root;
+
+            lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+            cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+            cursor->key.len = lEntry->klen;
+	        memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+            cursor->leaf = *leafPid;
+            cursor->slotNo = slotNo;
+        }
+        // 그 외,
+        else {
+            found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
+
+            // 같다는 조건 있으면, 발견한 slot no로 반환
+            if ((startCompOp & SM_EQ) && found) {
+                cursor->flag = CURSOR_ON;
+                slotNo = idx;
+                leafPid = root;
+
+                lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+                cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+                cursor->key.len = lEntry->klen;
+                memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+                cursor->leaf = *leafPid;
+                cursor->slotNo = slotNo;
+            }
+            
+            else if (startCompOp & SM_LT) {
+                // 주어진 key 값보다 작은 entry가 없을 경우,
+                if (idx == -1) {
+                    if (apage->bl.hdr.prevPage == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                    }
+                    else {
+                        MAKE_PAGEID(prevPid, root->volNo, apage->bl.hdr.prevPage);
+                        
+                        e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
+                        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+                        
+                        cursor->flag = CURSOR_ON;
+                        slotNo = apage->bl.hdr.nSlots - 1;
+                        leafPid = &prevPid;
+
+                        lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+                        cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+                        cursor->key.len = lEntry->klen;
+                        memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+                        cursor->leaf = *leafPid;
+                        cursor->slotNo = slotNo;
+                    }
+                }
+                else {
+                    cursor->flag = CURSOR_ON;
+                    slotNo = found ? idx - 1: idx;
+                    leafPid = root;
+
+                    lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+                    cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+                    cursor->key.len = lEntry->klen;
+                    memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+                    cursor->leaf = *leafPid;
+                    cursor->slotNo = slotNo;
+                }
+            }
+            else if (startCompOp & SM_GT) {
+                if (idx == apage->bl.hdr.nSlots - 1) {
+                    if (apage->bl.hdr.nextPage == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                    }
+                    else {
+                        MAKE_PAGEID(nextPid, root->volNo, apage->bl.hdr.nextPage);
+                        
+                        e = BfM_GetTrain(&prevPid, (char**)&apage, PAGE_BUF);
+                        if (e < eNOERROR) ERRB1(e, root, PAGE_BUF);
+                        
+                        cursor->flag = CURSOR_ON;
+                        slotNo = 0;
+                        leafPid = &nextPid;
+
+                        lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+                        cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+                        cursor->key.len = lEntry->klen;
+                        memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+                        cursor->leaf = *leafPid;
+                        cursor->slotNo = slotNo;
+                    }
+                }
+                else {
+                    cursor->flag = CURSOR_ON;
+                    slotNo = idx + 1;
+                    leafPid = root;
+
+                    lEntry = (btm_LeafEntry*)&apage->bl.data[apage->bl.slot[-slotNo]];
+            
+                    cursor->oid = *(ObjectID*)&lEntry->kval[ALIGNED_LENGTH(lEntry->klen)];
+                    cursor->key.len = lEntry->klen;
+                    memcpy(&(cursor->key.val[0]), &lEntry->kval, lEntry->klen);
+                    cursor->leaf = *leafPid;
+                    cursor->slotNo = slotNo;
+                }
+            }
+            else {
+                cursor->flag = CURSOR_EOS;
+            }
+        }
+        
+        if (cursor->flag == CURSOR_ON) {
+            // CURSOR_ON 이더라도, stopCompOp 및 stopKval로 인해 결과가 없는 경우 처리
+
+            // stopCompOp가 GREATEST인 경우 또는 LEAST인 경우,
+            if (!(stopCompOp & SM_EOF) && !(stopCompOp & SM_BOF)) {
+                cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
+
+                if (cmp == EQUAL && !(stopCompOp & SM_EQ)) {
+                    cursor->flag = CURSOR_EOS;
+                }
+                else if (cmp == GREATER && stopCompOp & SM_LT) {
+                    cursor->flag = CURSOR_EOS;
+                }
+                else if (cmp == LESS && stopCompOp & SM_GT) {
+                    cursor->flag = CURSOR_EOS;
+                }
+            }
         }
     }
 

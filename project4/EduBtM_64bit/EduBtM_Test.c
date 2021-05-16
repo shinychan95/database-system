@@ -261,7 +261,7 @@ Four EduBtM_Test(Four volId, Four handle){
 				printf("****************************** Scan. ******************************\n");
 
 				printf("****** Comparison operator *****\n");
-				printf("1. Equal value\n2. Less value\n3. Less or Equal value\n4. Greater value\n5. Greater or Eqaul value\n6. Greatest value\n7. Least value\n");
+				printf("1. Equal value\n2. Less value\n3. Less or Equal value\n4. Greater value\n5. Greater or Equal value\n6. Greatest value\n7. Least value\n");
 				printf("********************************\n");
 				
 				/* Get start conditions */
