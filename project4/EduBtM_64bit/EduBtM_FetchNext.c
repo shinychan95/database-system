@@ -144,7 +144,16 @@ Four EduBtM_FetchNext(
  *  Error code
  *    eBADCOMPOP_BTM
  *    some errors caused by function calls
- *
+ * 
+ * 한글 설명:
+ *  B+ tree 색인에서 검색 조건을 만족하는 현재 leaf index entry의 다음 leaf index entry를 검색하고, 
+ *  검색된 leaf index entry를 가리키는 cursor를 반환함. 검색 조건이 SM_GT, SM_GE일 경우 
+ *  key 값이 작아지는 방향으로 backward scan을 하며, 그 외의 경우 key 값이 커지는 방향으로 forward scan을 한다
+ * 
+ * 관련 함수:
+ *  - edubtm_KeyCompare(), 
+ *  - BfM_GetTrain(), 
+ *  - BfM_FreeTrain()
  */
 Four edubtm_FetchNext(
     KeyDesc  		*kdesc,		/* IN key descriptor */
@@ -172,6 +181,95 @@ Four edubtm_FetchNext(
         }
     }
 
+    // 검색 조건을 만족하는 다음 leaf index entry를 검색함
+    leaf = current->leaf;
+    e = BfM_GetTrain((TrainID*)&leaf, (char**)&apage, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
+
+    *next = *current;
+
+    // 증가하는 경우,
+    if (compOp & SM_LT || compOp & SM_EOF) {
+        if (next->slotNo == apage->hdr.nSlots - 1) {
+            if (apage->hdr.nextPage == NIL) {
+                next->flag = CURSOR_EOS;
+            }
+            else {
+                next->leaf.pageNo = apage->hdr.nextPage;
+
+                e = BfM_FreeTrain((TrainID*)&leaf, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+
+                leaf.pageNo = next->leaf.pageNo;
+                e = BfM_GetTrain((TrainID*)&leaf, (char**)&apage, PAGE_BUF);
+
+                next->slotNo = 0;
+
+                entry = (btm_LeafEntry*)&apage->data[next->slotNo];
+            
+                next->oid = *(ObjectID*)&entry->kval[ALIGNED_LENGTH(entry->klen)];
+                next->key.len = entry->klen;
+                memcpy(&(next->key.val[0]), &entry->kval, entry->klen);
+            }
+        }
+        else {
+            next->slotNo += 1;
+
+            entry = (btm_LeafEntry*)&apage->data[next->slotNo];
+            
+            next->oid = *(ObjectID*)&entry->kval[ALIGNED_LENGTH(entry->klen)];
+            next->key.len = entry->klen;
+	        memcpy(&(next->key.val[0]), &entry->kval, entry->klen);
+        }
+    }
+    // 감소하는 경우,
+    else if (compOp & SM_GT || compOp & SM_BOF) {
+        if (next->slotNo == 0) {
+            if (apage->hdr.prevPage == NIL) {
+                next->flag = CURSOR_EOS;
+            }
+            else {
+                next->leaf.pageNo = apage->hdr.prevPage;
+
+                e = BfM_FreeTrain((TrainID*)&leaf, PAGE_BUF);
+                if (e < eNOERROR) ERR(e);
+
+                leaf.pageNo = next->leaf.pageNo;
+                e = BfM_GetTrain((TrainID*)&leaf, (char**)&apage, PAGE_BUF);
+
+                next->slotNo = apage->hdr.nSlots-1;
+
+                entry = (btm_LeafEntry*)&apage->data[next->slotNo];
+            
+                next->oid = *(ObjectID*)&entry->kval[ALIGNED_LENGTH(entry->klen)];
+                next->key.len = entry->klen;
+                memcpy(&(next->key.val[0]), &entry->kval, entry->klen);
+            }
+        }
+        else {
+            next->slotNo -= 1;
+
+            entry = (btm_LeafEntry*)&apage->data[next->slotNo];
+            
+            next->oid = *(ObjectID*)&entry->kval[ALIGNED_LENGTH(entry->klen)];
+            next->key.len = entry->klen;
+	        memcpy(&(next->key.val[0]), &entry->kval, entry->klen);
+        }
+    }
+    else {
+        next->flag = CURSOR_EOS;
+    }
+
+    if (!(compOp == SM_EOF) && !(compOp == SM_BOF)) {
+        cmp = edubtm_KeyCompare(kdesc, kval, &next->key);
+        if (1 << cmp & compOp)
+            next->flag = CURSOR_ON;
+        else
+            next->flag = CURSOR_EOS;
+    }
+
+    e = BfM_FreeTrain((TrainID*)&leaf, PAGE_BUF);
+    if (e < eNOERROR) ERR(e);
     
     return(eNOERROR);
     
