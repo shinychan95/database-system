@@ -92,6 +92,28 @@ Four edubtm_KeyCompare(
         }
     }
 
+    
+    // 이번 과제에서는 key가 1개만 존재하는 것을 가정한다.
+    if (kdesc->kpart[0].type == SM_INT) {
+        i1 = *((Four*)&(key1->val[0]));
+        i2 = *((Four*)&(key2->val[0]));
+        if (i1 > i2) return(GREATER);
+        if (i1 < i2) return(LESS);
+    }
+    else {
+        len1 = *((Two*)&(key1->val[0]));
+        len2 = *((Two*)&(key2->val[0]));
+        kpartSize += 2;
+        
+        for (j = 0; j < len1 && j < len2; j++, kpartSize++) {
+            left = &(key1->val[kpartSize]); 
+            right = &(key2->val[kpartSize]);
+            if (*left > *right) return(GREATER);
+            if (*left < *right) return(LESS);
+        }
+        if (len1 > len2) return(GREATER);
+        if (len1 < len2) return(LESS);
+    }
         
     return(EQUAL);
     
